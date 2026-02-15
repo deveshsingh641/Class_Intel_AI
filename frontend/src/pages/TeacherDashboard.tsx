@@ -7,10 +7,11 @@ import { SearchFilter } from "@/components/SearchFilter";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MessageSquare, Star, TrendingUp, Users, Sparkles } from "lucide-react";
+import { MessageSquare, Star, TrendingUp, Users, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import type { Feedback } from "@shared/schema";
 
 interface FeedbackWithTeacher extends Feedback {
@@ -37,12 +38,45 @@ export default function TeacherDashboard() {
   const [filterRating, setFilterRating] = useState<number | null>(null);
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
 
-  const { data: feedback = [], isLoading, error } = useQuery<FeedbackWithTeacher[]>({
-    queryKey: ["/api/feedback/received"],
+  const [page, setPage] = useState(1);
+  const limit = 10;
+
+  const { data: feedbackData, isLoading, error } = useQuery<{
+    items: FeedbackWithTeacher[];
+    total: number;
+    page: number;
+    limit: number;
+  }>({
+    queryKey: ["/api/feedback/received", page, limit, searchQuery, sortBy, filterRating],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        search: searchQuery,
+        sortBy: sortBy,
+      });
+      if (filterRating) params.append("minRating", filterRating.toString());
+      const res = await apiRequest("GET", `/api/feedback/received?${params}`);
+      return res.json();
+    },
   });
+
+  const feedback = feedbackData?.items || [];
+  const totalFeedback = feedbackData?.total || 0;
+  const totalPages = Math.ceil(totalFeedback / limit);
 
   const { data: doubts = [] } = useQuery<DoubtItem[]>({
     queryKey: ["/api/doubts/teacher"],
+  });
+
+  const { data: improvementData } = useQuery<{
+    hasData: boolean;
+    improvement: number;
+    recentAverage: number | null;
+    previousAverage: number | null;
+  }>({
+    queryKey: user?.id ? [`/api/analytics/teacher/${user.id}/improvement`] : [],
+    enabled: !!user?.id,
   });
 
   const answerMutation = useMutation({
@@ -55,9 +89,9 @@ export default function TeacherDashboard() {
     },
   });
 
-  const totalFeedback = feedback.length;
-  const averageRating = totalFeedback > 0 
-    ? feedback.reduce((sum, f) => sum + f.rating, 0) / totalFeedback 
+  const pageFeedbackCount = feedback.length;
+  const averageRating = pageFeedbackCount > 0 
+    ? feedback.reduce((sum, f) => sum + f.rating, 0) / pageFeedbackCount 
     : 0;
   const uniqueStudents = new Set(feedback.map((f) => f.studentName)).size;
 
@@ -133,6 +167,19 @@ export default function TeacherDashboard() {
       return res.json() as Promise<{ templates?: string[] }>;
     },
   });
+
+  const resolvedCount = feedback.filter((f) => f.resolvedAt).length;
+  const unreadCount = feedback.filter((f) => !f.readAt).length;
+
+  const improvementValue =
+    improvementData && improvementData.hasData
+      ? improvementData.improvement.toFixed(2)
+      : "N/A";
+
+  const improvementSubtitle =
+    improvementData && improvementData.hasData
+      ? "Last 30 days vs previous"
+      : "Not enough recent data";
 
   if (isLoading) {
     return (
@@ -213,6 +260,24 @@ export default function TeacherDashboard() {
             subtitle={`${answeredDoubts} answered`}
             icon={MessageSquare}
           />
+          <StatCard
+            title="Unread Feedback"
+            value={unreadCount}
+            subtitle="Need your attention"
+            icon={AlertCircle}
+          />
+          <StatCard
+            title="Resolved Feedback"
+            value={resolvedCount}
+            subtitle="Marked as addressed"
+            icon={CheckCircle2}
+          />
+          <StatCard
+            title="Rating Improvement"
+            value={improvementValue}
+            subtitle={improvementSubtitle}
+            icon={TrendingUp}
+          />
         </div>
 
         <Tabs defaultValue="feedback" className="space-y-6">
@@ -244,6 +309,9 @@ export default function TeacherDashboard() {
                     comment: item.comment || "",
                     createdAt: item.createdAt ? new Date(item.createdAt) : new Date(),
                     subject: item.subject || undefined,
+                    qualityScore: (item as any).qualityScore,
+                    commentLength: (item as any).commentLength,
+                    hasComment: (item as any).hasComment,
                   }} 
                 />
               ))}
@@ -252,10 +320,34 @@ export default function TeacherDashboard() {
             {filteredFeedback.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-muted-foreground" data-testid="text-no-feedback">
-                  {feedback.length === 0 
+                  {feedback.length === 0 && !searchQuery
                     ? "No feedback received yet. Feedback from students will appear here." 
                     : "No feedback found matching your criteria."}
                 </p>
+              </div>
+            )}
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-6">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >
+                  Next
+                </Button>
               </div>
             )}
           </TabsContent>
@@ -371,7 +463,7 @@ export default function TeacherDashboard() {
                       <div key={item.rating} className="flex items-center justify-between py-2 border-b last:border-0">
                         <span className="text-sm text-muted-foreground">{item.rating}-star ratings</span>
                         <span className="font-medium">
-                          {item.count} ({totalFeedback > 0 ? Math.round((item.count / totalFeedback) * 100) : 0}%)
+                          {item.count} ({pageFeedbackCount > 0 ? Math.round((item.count / pageFeedbackCount) * 100) : 0}%)
                         </span>
                       </div>
                     ))}
@@ -380,7 +472,7 @@ export default function TeacherDashboard() {
               </div>
 
               <TeacherInsightsPanel
-                totalFeedback={totalFeedback}
+                totalFeedback={pageFeedbackCount}
                 averageRating={averageRating}
                 uniqueStudents={uniqueStudents}
                 ratingDistribution={ratingDistribution}

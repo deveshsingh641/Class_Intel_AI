@@ -1,5 +1,5 @@
 import { useParams, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,18 @@ import { TeacherAISummary } from "@/components/TeacherAISummary";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Teacher, Feedback } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 
 interface TeacherStats {
   averageRating: number;
@@ -23,63 +34,184 @@ interface TeacherStats {
   feedbackList: Feedback[];
 }
 
+interface FeedbackSummaryResponse {
+  total: number;
+  averageRating: number;
+  positiveCount: number;
+  uniqueStudents: number;
+  avgCommentLength: number;
+  ratingDistribution: Array<{ rating: number; count: number }>;
+  ratingTrend: number;
+}
+
+interface FeedbackPagedResponse {
+  items: Feedback[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+interface OfficeSlot {
+  id: string;
+  teacherId: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+}
+
+interface OfficeBooking {
+  id: string;
+  slotId: string;
+  studentId: string;
+  status: string;
+  slot?: OfficeSlot | null;
+}
+
 export default function TeacherProfile() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const { user } = useAuth();
   const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const [slotForm, setSlotForm] = useState({ startTime: "", endTime: "" });
 
   const { data: teacher, isLoading: teacherLoading } = useQuery<Teacher>({
     queryKey: [`/api/teachers/${id}`],
   });
 
-  const { data: feedbackList = [] } = useQuery<Feedback[]>({
-    queryKey: [`/api/feedback/teacher/${id}`],
+  const teacherIdForLink = teacher?.id ?? id ?? "";
+
+  const { data: feedbackSummary } = useQuery<FeedbackSummaryResponse>({
+    queryKey: [`/api/feedback/teacher/${id}/summary`],
+    enabled: !!id,
   });
 
-  const ratingDistribution = [
-    { rating: 5, count: feedbackList.filter(f => f.rating === 5).length },
-    { rating: 4, count: feedbackList.filter(f => f.rating === 4).length },
-    { rating: 3, count: feedbackList.filter(f => f.rating === 3).length },
-    { rating: 2, count: feedbackList.filter(f => f.rating === 2).length },
-    { rating: 1, count: feedbackList.filter(f => f.rating === 1).length },
-  ];
+  const FEEDBACK_PAGE_SIZE = 20;
+  const [feedbackPage, setFeedbackPage] = useState(1);
+  const [loadedFeedback, setLoadedFeedback] = useState<Feedback[]>([]);
+  const [filterRating, setFilterRating] = useState<string>("all");
+  const [filterHasComment, setFilterHasComment] = useState(false);
+  const [sortBy, setSortBy] = useState("newest");
 
-  const uniqueStudents = new Set(feedbackList.map(f => f.studentId)).size;
-  const averageRating = feedbackList.length > 0 
-    ? feedbackList.reduce((sum, f) => sum + f.rating, 0) / feedbackList.length 
-    : 0;
+  useEffect(() => {
+    setFeedbackPage(1);
+    setLoadedFeedback([]);
+  }, [id, filterRating, filterHasComment, sortBy]);
 
-  // Calculate additional statistics
-  const positiveFeedbackCount = feedbackList.filter(f => f.rating >= 4).length;
-  const positiveFeedbackRate = feedbackList.length > 0 
-    ? (positiveFeedbackCount / feedbackList.length) * 100 
-    : 0;
-  
-  // Calculate rating trend (comparing recent vs older feedback)
-  const sortedFeedback = [...feedbackList].sort((a, b) => 
-    new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-  );
-  const recentFeedback = sortedFeedback.slice(0, Math.ceil(feedbackList.length / 2));
-  const olderFeedback = sortedFeedback.slice(Math.ceil(feedbackList.length / 2));
-  
-  const recentAvgRating = recentFeedback.length > 0
-    ? recentFeedback.reduce((sum, f) => sum + f.rating, 0) / recentFeedback.length
-    : 0;
-  const olderAvgRating = olderFeedback.length > 0
-    ? olderFeedback.reduce((sum, f) => sum + f.rating, 0) / olderFeedback.length
-    : 0;
-  const ratingTrend = recentAvgRating - olderAvgRating;
+  const feedbackPageUrl = id
+    ? `/api/feedback/teacher/${id}/paged?page=${feedbackPage}&limit=${FEEDBACK_PAGE_SIZE}&minRating=${filterRating === 'all' ? '' : filterRating}&hasComment=${filterHasComment}&sortBy=${sortBy}`
+    : "";
 
-  // Calculate response rate (replies are fetched separately, so we'll set to 0 for now)
+  const {
+    data: feedbackPageData,
+    isLoading: feedbackPageLoading,
+    isFetching: feedbackPageFetching,
+  } = useQuery<FeedbackPagedResponse>({
+    queryKey: [feedbackPageUrl],
+    enabled: !!id,
+  });
+
+  useEffect(() => {
+    if (!feedbackPageData?.items?.length) return;
+    setLoadedFeedback((prev) => {
+      const existing = new Set(prev.map((f) => f.id));
+      const next = feedbackPageData.items.filter((f) => !existing.has(f.id));
+      return next.length > 0 ? [...prev, ...next] : prev;
+    });
+  }, [feedbackPageData]);
+
+  const { data: slots = [] } = useQuery<OfficeSlot[]>({
+    queryKey: [`/api/office/slots/${id}`],
+  });
+
+  const { data: myBookings = [] } = useQuery<OfficeBooking[]>({
+    queryKey: ["/api/office/bookings/my"],
+    enabled: user?.role === "student",
+  });
+
+  const createSlotMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/office/slots", {
+        startTime: slotForm.startTime,
+        endTime: slotForm.endTime,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [`/api/office/slots/${id}`] });
+      setSlotForm({ startTime: "", endTime: "" });
+      toast({ title: "Slot created" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to create slot", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const bookSlotMutation = useMutation({
+    mutationFn: async (slotId: string) => {
+      const res = await apiRequest("POST", `/api/office/slots/${slotId}/book`);
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [`/api/office/slots/${id}`] });
+      qc.invalidateQueries({ queryKey: ["/api/office/bookings/my"] });
+      toast({ title: "Slot booked" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to book slot", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const cancelBookingMutation = useMutation({
+    mutationFn: async (bookingId: string) => {
+      const res = await apiRequest("POST", `/api/office/bookings/${bookingId}/cancel`);
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [`/api/office/slots/${id}`] });
+      qc.invalidateQueries({ queryKey: ["/api/office/bookings/my"] });
+      toast({ title: "Booking canceled" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to cancel booking", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const totalFeedbackCount =
+    feedbackSummary?.total ?? teacher?.totalFeedback ?? feedbackPageData?.total ?? loadedFeedback.length;
+
+  const ratingDistribution =
+    feedbackSummary?.ratingDistribution?.length === 5
+      ? feedbackSummary.ratingDistribution
+      : [5, 4, 3, 2, 1].map((rating) => ({
+          rating,
+          count: loadedFeedback.filter((f) => f.rating === rating).length,
+        }));
+
+  const uniqueStudents = feedbackSummary?.uniqueStudents ?? new Set(loadedFeedback.map((f) => f.studentId)).size;
+  const averageRating =
+    feedbackSummary?.averageRating ??
+    teacher?.averageRating ??
+    (loadedFeedback.length > 0 ? loadedFeedback.reduce((sum, f) => sum + f.rating, 0) / loadedFeedback.length : 0);
+
+  const positiveFeedbackCount = feedbackSummary?.positiveCount ?? loadedFeedback.filter((f) => f.rating >= 4).length;
+  const positiveFeedbackRate = totalFeedbackCount > 0 ? (positiveFeedbackCount / totalFeedbackCount) * 100 : 0;
+
+  const ratingTrend = feedbackSummary?.ratingTrend ?? 0;
+
   const responseRate = 0;
 
-  // Calculate average comment length
-  const commentsWithText = feedbackList.filter(f => f.comment && f.comment.length > 0);
-  const avgCommentLength = commentsWithText.length > 0
-    ? commentsWithText.reduce((sum, f) => sum + (f.comment?.length || 0), 0) / commentsWithText.length
-    : 0;
+  const avgCommentLength =
+    feedbackSummary?.avgCommentLength ??
+    (() => {
+      const commentsWithText = loadedFeedback.filter((f) => f.comment && f.comment.length > 0);
+      return commentsWithText.length > 0
+        ? commentsWithText.reduce((sum, f) => sum + (f.comment?.length || 0), 0) / commentsWithText.length
+        : 0;
+    })();
 
   if (teacherLoading) {
     return (
@@ -153,7 +285,7 @@ export default function TeacherProfile() {
                     <div className="flex items-center gap-2">
                       <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
                       <span className="text-2xl font-bold">{averageRating.toFixed(1)}</span>
-                      <span className="text-sm text-muted-foreground">({feedbackList.length} reviews)</span>
+                      <span className="text-sm text-muted-foreground">({totalFeedbackCount} reviews)</span>
                     </div>
                   </div>
                 </div>
@@ -218,36 +350,14 @@ export default function TeacherProfile() {
               <div className="rounded-md border border-dashed border-muted p-2 bg-muted/30">
                 <p className="text-[11px] break-all font-mono">
                   {typeof window !== "undefined"
-                    ? `${window.location.origin}/qr-feedback/${teacher.id}`
-                    : `/qr-feedback/${teacher.id}`}
+                    ? `${window.location.origin}/api/qr-feedback/${teacherIdForLink}`
+                    : `/api/qr-feedback/${teacherIdForLink}`}
                 </p>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover-lift animate-slideInDown">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Students
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold animate-fadeScale">{uniqueStudents}</p>
-              <p className="text-xs text-muted-foreground">unique reviewers</p>
-            </CardContent>
-          </Card>
-
-          <Card className="hover-lift animate-slideInDown" style={{ animationDelay: "0.1s" }}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" />
-                Feedback
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold animate-fadeScale">{feedbackList.length}</p>
-              <p className="text-xs text-muted-foreground">total submissions</p>
+              <div className="mt-3">
+                <p className="text-3xl font-bold animate-fadeScale">{totalFeedbackCount}</p>
+                <p className="text-xs text-muted-foreground">total submissions</p>
+              </div>
             </CardContent>
           </Card>
 
@@ -260,11 +370,11 @@ export default function TeacherProfile() {
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold animate-fadeScale">{positiveFeedbackRate.toFixed(0)}%</p>
-              <p className="text-xs text-muted-foreground">{positiveFeedbackCount} of {feedbackList.length} positive</p>
+              <p className="text-xs text-muted-foreground">{positiveFeedbackCount} of {totalFeedbackCount} positive</p>
             </CardContent>
           </Card>
 
-          {feedbackList.length > 0 && (
+          {totalFeedbackCount > 0 && (
             <Card className="hover-lift animate-slideInDown" style={{ animationDelay: "0.3s" }}>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -297,7 +407,7 @@ export default function TeacherProfile() {
         <CardContent>
           <SkillBadges 
             averageRating={averageRating}
-            totalFeedback={feedbackList.length}
+            totalFeedback={totalFeedbackCount}
             totalStudents={uniqueStudents}
           />
         </CardContent>
@@ -314,7 +424,7 @@ export default function TeacherProfile() {
         <CardContent>
           <RatingProgress 
             currentRating={averageRating}
-            totalReviews={feedbackList.length}
+            totalReviews={totalFeedbackCount}
           />
         </CardContent>
       </Card>
@@ -331,7 +441,7 @@ export default function TeacherProfile() {
         <CardContent>
           <div className="space-y-4">
             {ratingDistribution.map(({ rating, count }, index) => {
-              const percentage = feedbackList.length > 0 ? (count / feedbackList.length) * 100 : 0;
+              const percentage = totalFeedbackCount > 0 ? (count / totalFeedbackCount) * 100 : 0;
               return (
                 <div 
                   key={rating} 
@@ -373,14 +483,14 @@ export default function TeacherProfile() {
           </div>
           
           {/* Summary Stats */}
-          {feedbackList.length > 0 && (
+          {totalFeedbackCount > 0 && (
             <div className="mt-6 pt-6 border-t grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-3 bg-muted/50 rounded-lg animate-fadeScale">
-                <p className="text-2xl font-bold text-green-600">{ratingDistribution[4]?.count || 0}</p>
+                <p className="text-2xl font-bold text-green-600">{ratingDistribution[0]?.count || 0}</p>
                 <p className="text-xs text-muted-foreground">5 Stars</p>
               </div>
               <div className="text-center p-3 bg-muted/50 rounded-lg animate-fadeScale" style={{ animationDelay: "0.1s" }}>
-                <p className="text-2xl font-bold text-blue-600">{ratingDistribution[3]?.count || 0}</p>
+                <p className="text-2xl font-bold text-blue-600">{ratingDistribution[1]?.count || 0}</p>
                 <p className="text-xs text-muted-foreground">4 Stars</p>
               </div>
               <div className="text-center p-3 bg-muted/50 rounded-lg animate-fadeScale" style={{ animationDelay: "0.2s" }}>
@@ -388,7 +498,7 @@ export default function TeacherProfile() {
                 <p className="text-xs text-muted-foreground">3 Stars</p>
               </div>
               <div className="text-center p-3 bg-muted/50 rounded-lg animate-fadeScale" style={{ animationDelay: "0.3s" }}>
-                <p className="text-2xl font-bold text-orange-600">{(ratingDistribution[1]?.count || 0) + (ratingDistribution[0]?.count || 0)}</p>
+                <p className="text-2xl font-bold text-orange-600">{(ratingDistribution[3]?.count || 0) + (ratingDistribution[4]?.count || 0)}</p>
                 <p className="text-xs text-muted-foreground">1-2 Stars</p>
               </div>
             </div>
@@ -397,7 +507,7 @@ export default function TeacherProfile() {
       </Card>
 
       {/* Performance Metrics */}
-      {feedbackList.length > 0 && (
+      {totalFeedbackCount > 0 && (
         <Card className="hover-lift animate-slideInUp" style={{ animationDelay: "0.25s" }}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -415,7 +525,7 @@ export default function TeacherProfile() {
                 </div>
                 <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{responseRate.toFixed(0)}%</p>
                 <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                  {Math.round((responseRate / 100) * feedbackList.length)} of {feedbackList.length} responded
+                  {Math.round((responseRate / 100) * totalFeedbackCount)} of {totalFeedbackCount} responded
                 </p>
               </div>
               
@@ -444,7 +554,7 @@ export default function TeacherProfile() {
       )}
 
       {/* AI-Generated Summary */}
-      {feedbackList.length > 0 && (
+      {totalFeedbackCount > 0 && (
         <div className="animate-slideInUp" style={{ animationDelay: "0.28s" }}>
           <TeacherAISummary teacherId={id!} />
         </div>
@@ -453,21 +563,72 @@ export default function TeacherProfile() {
       {/* Recent Feedback */}
       <Card className="hover-lift animate-slideInUp" style={{ animationDelay: "0.3s" }}>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
-            Recent Feedback
-          </CardTitle>
-          <CardDescription>Click on a feedback to view full details</CardDescription>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Student Feedback
+              </CardTitle>
+              <CardDescription>Click on a feedback to view full details</CardDescription>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center space-x-2">
+                 <Checkbox 
+                  id="has-comment" 
+                  checked={filterHasComment}
+                  onCheckedChange={(checked) => setFilterHasComment(!!checked)}
+                />
+                <Label htmlFor="has-comment" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  With comments
+                </Label>
+              </div>
+
+              <Select value={filterRating} onValueChange={setFilterRating}>
+                <SelectTrigger className="w-[130px] h-9">
+                  <SelectValue placeholder="Rating" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Ratings</SelectItem>
+                  <SelectItem value="5">5 Stars</SelectItem>
+                  <SelectItem value="4">4 Stars & Up</SelectItem>
+                  <SelectItem value="3">3 Stars & Up</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[130px] h-9">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest First</SelectItem>
+                  <SelectItem value="oldest">Oldest First</SelectItem>
+                  <SelectItem value="rating-desc">Highest Rated</SelectItem>
+                  <SelectItem value="rating-asc">Lowest Rated</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4 max-h-96 overflow-y-auto">
-            {feedbackList.length === 0 ? (
+          <div className="space-y-4 max-h-[800px] overflow-y-auto pr-2 custom-scrollbar">
+            {totalFeedbackCount === 0 ? (
               <div className="text-center py-8 animate-fadeIn">
                 <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-2 opacity-50" />
                 <p className="text-muted-foreground">No feedback yet</p>
               </div>
+            ) : feedbackPageLoading && loadedFeedback.length === 0 ? (
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="border rounded-lg p-4">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="h-3 w-28 mt-2" />
+                    <Skeleton className="h-3 w-full mt-3" />
+                  </div>
+                ))}
+              </div>
             ) : (
-              feedbackList.slice(0, 5).map((feedback, index) => (
+              loadedFeedback.map((feedback, index) => (
                 <div
                   key={feedback.id}
                   className="border rounded-lg p-4 hover-lift cursor-pointer animate-slideInUp group"
@@ -510,9 +671,14 @@ export default function TeacherProfile() {
               ))
             )}
           </div>
-          {feedbackList.length > 5 && (
-            <Button variant="outline" className="w-full mt-4 hover-lift">
-              View All {feedbackList.length} Reviews
+          {loadedFeedback.length < totalFeedbackCount && (
+            <Button
+              variant="outline"
+              className="w-full mt-4 hover-lift"
+              disabled={feedbackPageFetching}
+              onClick={() => setFeedbackPage((p) => p + 1)}
+            >
+              Load More ({loadedFeedback.length}/{totalFeedbackCount})
             </Button>
           )}
         </CardContent>

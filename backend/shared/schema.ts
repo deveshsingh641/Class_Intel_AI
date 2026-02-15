@@ -1,108 +1,302 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, real, unique } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
+import mongoose, { Schema, model, InferSchemaType } from "mongoose";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  email: text("email").notNull().unique(),
-  password: text("password").notNull(),
-  name: text("name").notNull(),
-  role: text("role").notNull().default("student"),
-  department: text("department"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+const stringId = {
+  type: String,
+  default: () => new mongoose.Types.ObjectId().toString(),
+};
 
-export const teachers = pgTable("teachers", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  department: text("department").notNull(),
-  subject: text("subject").notNull(),
-  averageRating: real("average_rating").default(0),
-  totalFeedback: integer("total_feedback").default(0),
-  bio: text("bio"),
-  profileImage: text("profile_image"),
-  officeHours: text("office_hours"),
-  contactInfo: text("contact_info"),
-  teachingPhilosophy: text("teaching_philosophy"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+// ----- Schemas -----
+const userSchema = new Schema(
+  {
+    _id: stringId,
+    username: { type: String, required: true, unique: true },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    name: { type: String, required: true },
+    role: { type: String, enum: ["student", "teacher", "admin"], default: "student" },
+    department: { type: String },
+    status: { type: String, default: "active" },
+    lastLogin: { type: Date },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { collection: "users" },
+);
 
-export const feedback = pgTable("feedback", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  teacherId: varchar("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
-  studentId: varchar("student_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  studentName: text("student_name").notNull(),
-  rating: integer("rating").notNull(),
-  comment: text("comment"),
-  subject: text("subject"),
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => ({
-  uniqueFeedback: unique().on(table.teacherId, table.studentId),
-}));
+const teacherSchema = new Schema(
+  {
+    _id: stringId,
+    name: { type: String, required: true },
+    department: { type: String, required: true },
+    subject: { type: String, required: true },
+    averageRating: { type: Number, default: 0 },
+    totalFeedback: { type: Number, default: 0 },
+    bio: { type: String },
+    profileImage: { type: String },
+    officeHours: { type: String },
+    contactInfo: { type: String },
+    teachingPhilosophy: { type: String },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { collection: "teachers" },
+);
 
-export const replies = pgTable("replies", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  feedbackId: varchar("feedback_id").notNull().references(() => feedback.id, { onDelete: "cascade" }),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  userName: text("user_name").notNull(),
-  userRole: text("user_role").notNull(),
-  content: text("content").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+const feedbackSchema = new Schema(
+  {
+    _id: stringId,
+    teacherId: { type: String, ref: "Teacher", required: true },
+    studentId: { type: String, ref: "User", required: true },
+    studentName: { type: String, required: true },
+    isAnonymous: { type: Boolean, default: false },
+    rating: { type: Number, required: true },
+    comment: { type: String },
+    subject: { type: String },
+    createdAt: { type: Date, default: Date.now },
+    readAt: { type: Date },
+    resolvedAt: { type: Date },
+  },
+  { collection: "feedback" },
+);
+feedbackSchema.index({ teacherId: 1, studentId: 1 }, { unique: true });
 
-export const feedbackAnalysis = pgTable("feedback_analysis", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  feedbackId: varchar("feedback_id").notNull().references(() => feedback.id, { onDelete: "cascade" }).unique(),
-  sentiment: text("sentiment"), // "positive", "negative", "neutral"
-  sentimentScore: real("sentiment_score"), // -1 to 1
-  qualityScore: integer("quality_score"), // 1-10
-  keywords: text("keywords"), // JSON array of extracted keywords
-  analyzedAt: timestamp("analyzed_at").defaultNow(),
-});
+const feedbackFlagSchema = new Schema(
+  {
+    _id: stringId,
+    feedbackId: { type: String, ref: "Feedback", required: true },
+    userId: { type: String, ref: "User", required: true },
+    reason: { type: String },
+    status: { type: String, default: "open" },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { collection: "feedback_flags" },
+);
 
-export const teacherSummaries = pgTable("teacher_summaries", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  teacherId: varchar("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
-  summary: text("summary").notNull(),
-  strengths: text("strengths"), // JSON array
-  improvements: text("improvements"), // JSON array
-  generatedAt: timestamp("generated_at").defaultNow(),
-});
+const officeSlotSchema = new Schema(
+  {
+    _id: stringId,
+    teacherId: { type: String, ref: "Teacher", required: true },
+    startTime: { type: Date, required: true },
+    endTime: { type: Date, required: true },
+    status: { type: String, default: "open" },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { collection: "office_slots" },
+);
 
-export const chatHistory = pgTable("chat_history", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
-  message: text("message").notNull(),
-  response: text("response").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+const officeBookingSchema = new Schema(
+  {
+    _id: stringId,
+    slotId: { type: String, ref: "OfficeSlot", required: true },
+    studentId: { type: String, ref: "User", required: true },
+    status: { type: String, default: "booked" },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { collection: "office_bookings" },
+);
+officeBookingSchema.index({ slotId: 1 }, { unique: true });
 
-export const favorites = pgTable("favorites", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  studentId: varchar("student_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  teacherId: varchar("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => ({
-  uniqueFavorite: unique().on(table.studentId, table.teacherId),
-}));
+const replySchema = new Schema(
+  {
+    _id: stringId,
+    feedbackId: { type: String, ref: "Feedback", required: true },
+    userId: { type: String, ref: "User", required: true },
+    userName: { type: String, required: true },
+    userRole: { type: String, required: true },
+    content: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { collection: "replies" },
+);
 
-export const doubts = pgTable("doubts", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  teacherId: varchar("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
-  studentId: varchar("student_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  studentName: text("student_name").notNull(),
-  question: text("question").notNull(),
-  answer: text("answer"),
-  status: text("status").notNull().default("open"),
-  createdAt: timestamp("created_at").defaultNow(),
-  answeredAt: timestamp("answered_at"),
-});
+const feedbackAnalysisSchema = new Schema(
+  {
+    _id: stringId,
+    feedbackId: { type: String, ref: "Feedback", required: true, unique: true },
+    sentiment: { type: String },
+    sentimentScore: { type: Number },
+    qualityScore: { type: Number },
+    keywords: { type: String },
+    analyzedAt: { type: Date, default: Date.now },
+  },
+  { collection: "feedback_analysis" },
+);
 
-export const insertUserSchema = createInsertSchema(users).omit({
-  id: true,
-  createdAt: true,
+const teacherSummarySchema = new Schema(
+  {
+    _id: stringId,
+    teacherId: { type: String, ref: "Teacher", required: true },
+    summary: { type: String, required: true },
+    strengths: { type: String },
+    improvements: { type: String },
+    generatedAt: { type: Date, default: Date.now },
+  },
+  { collection: "teacher_summaries" },
+);
+
+const chatHistorySchema = new Schema(
+  {
+    _id: stringId,
+    userId: { type: String, ref: "User" },
+    message: { type: String, required: true },
+    response: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { collection: "chat_history" },
+);
+
+const favoriteSchema = new Schema(
+  {
+    _id: stringId,
+    studentId: { type: String, ref: "User", required: true },
+    teacherId: { type: String, ref: "Teacher", required: true },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { collection: "favorites" },
+);
+favoriteSchema.index({ studentId: 1, teacherId: 1 }, { unique: true });
+
+const doubtSchema = new Schema(
+  {
+    _id: stringId,
+    teacherId: { type: String, ref: "Teacher", required: true },
+    studentId: { type: String, ref: "User", required: true },
+    studentName: { type: String, required: true },
+    question: { type: String, required: true },
+    answer: { type: String },
+    status: { type: String, default: "open" },
+    createdAt: { type: Date, default: Date.now },
+    answeredAt: { type: Date },
+  },
+  { collection: "doubts" },
+);
+
+const studyGroupMemberSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    joinedAt: { type: Date, default: Date.now },
+  },
+  { _id: false },
+);
+
+const studyGroupSchema = new Schema(
+  {
+    _id: stringId,
+    name: { type: String, required: true },
+    description: { type: String, default: "" },
+    subject: { type: String, required: true },
+    creatorId: { type: String, ref: "User", required: true },
+    creatorName: { type: String, required: true },
+    members: { type: [studyGroupMemberSchema], default: [] },
+    maxMembers: { type: Number, default: 10 },
+    isPrivate: { type: Boolean, default: false },
+    tags: { type: [String], default: [] },
+    createdAt: { type: Date, default: Date.now },
+    lastActivity: { type: Date },
+  },
+  { collection: "study_groups" },
+);
+
+const studentAchievementClaimSchema = new Schema(
+  {
+    _id: stringId,
+    studentId: { type: String, ref: "User", required: true },
+    achievementId: { type: String, required: true },
+    unlockedAt: { type: Date, default: Date.now },
+    claimedAt: { type: Date, default: Date.now },
+  },
+  { collection: "student_achievement_claims" },
+);
+studentAchievementClaimSchema.index({ studentId: 1, achievementId: 1 }, { unique: true });
+
+// ----- Models -----
+export const UserModel = model("User", userSchema);
+export const TeacherModel = model("Teacher", teacherSchema);
+export const FeedbackModel = model("Feedback", feedbackSchema);
+export const FeedbackFlagModel = model("FeedbackFlag", feedbackFlagSchema);
+export const OfficeSlotModel = model("OfficeSlot", officeSlotSchema);
+export const OfficeBookingModel = model("OfficeBooking", officeBookingSchema);
+export const ReplyModel = model("Reply", replySchema);
+export const FeedbackAnalysisModel = model("FeedbackAnalysis", feedbackAnalysisSchema);
+export const TeacherSummaryModel = model("TeacherSummary", teacherSummarySchema);
+export const ChatHistoryModel = model("ChatHistory", chatHistorySchema);
+export const FavoriteModel = model("Favorite", favoriteSchema);
+export const DoubtModel = model("Doubt", doubtSchema);
+export const StudyGroupModel = model("StudyGroup", studyGroupSchema);
+export const StudentAchievementClaimModel = model("StudentAchievementClaim", studentAchievementClaimSchema);
+
+// ----- Types -----
+export type User = InferSchemaType<typeof userSchema> & { id: string };
+export type InsertUser = {
+  name: string;
+  email: string;
+  password: string;
+  role?: "student" | "teacher" | "admin";
+  department?: string;
+  username?: string;
+};
+
+export type Teacher = InferSchemaType<typeof teacherSchema> & { id: string };
+export type InsertTeacher = {
+  name: string;
+  department: string;
+  subject: string;
+  bio?: string;
+  profileImage?: string;
+  officeHours?: string;
+  contactInfo?: string;
+  teachingPhilosophy?: string;
+};
+export type UpdateTeacher = Partial<Omit<InsertTeacher, "name" | "department" | "subject">>;
+
+export type Feedback = InferSchemaType<typeof feedbackSchema> & { id: string };
+export type InsertFeedback = {
+  teacherId: string;
+  studentId: string;
+  studentName: string;
+  isAnonymous?: boolean;
+  rating: number;
+  comment?: string | null;
+  subject?: string | null;
+};
+
+export type Reply = InferSchemaType<typeof replySchema> & { id: string };
+export type InsertReply = {
+  feedbackId: string;
+  userId: string;
+  userName: string;
+  userRole: string;
+  content: string;
+};
+
+export type FeedbackAnalysis = InferSchemaType<typeof feedbackAnalysisSchema> & { id: string };
+export type TeacherSummary = InferSchemaType<typeof teacherSummarySchema> & { id: string };
+export type ChatHistory = InferSchemaType<typeof chatHistorySchema> & { id: string };
+
+export type Favorite = InferSchemaType<typeof favoriteSchema> & { id: string };
+export type InsertFavorite = {
+  studentId: string;
+  teacherId: string;
+};
+
+export type Doubt = InferSchemaType<typeof doubtSchema> & { id: string };
+export type InsertDoubt = {
+  teacherId: string;
+  studentId: string;
+  studentName: string;
+  question: string;
+};
+
+export type StudyGroup = InferSchemaType<typeof studyGroupSchema> & { id: string };
+export type StudentAchievementClaim = InferSchemaType<typeof studentAchievementClaimSchema> & { id: string };
+
+// ----- Validation Schemas -----
+export const signupSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+  password: z.string().min(6),
+  role: z.enum(["student", "teacher"]).optional(),
+  department: z.string().optional(),
 });
 
 export const loginSchema = z.object({
@@ -110,20 +304,7 @@ export const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-export const signupSchema = z.object({
-  name: z.string().min(1),
-  email: z.string().email(),
-  password: z.string().min(6),
-  role: z.enum(["student", "teacher"]),
-  department: z.string().optional(),
-});
-
-export const insertTeacherSchema = createInsertSchema(teachers).omit({
-  id: true,
-  averageRating: true,
-  totalFeedback: true,
-  createdAt: true,
-}).extend({
+export const insertTeacherSchema = z.object({
   name: z
     .string()
     .trim()
@@ -131,6 +312,11 @@ export const insertTeacherSchema = createInsertSchema(teachers).omit({
     .refine((v) => v.toLowerCase() !== "name", "Please enter a valid teacher name"),
   department: z.string().trim().min(1, "Department is required"),
   subject: z.string().trim().min(1, "Subject is required"),
+  bio: z.string().optional(),
+  profileImage: z.string().optional(),
+  officeHours: z.string().optional(),
+  contactInfo: z.string().optional(),
+  teachingPhilosophy: z.string().optional(),
 });
 
 export const updateTeacherSchema = z.object({
@@ -141,40 +327,23 @@ export const updateTeacherSchema = z.object({
   teachingPhilosophy: z.string().optional(),
 });
 
-export const insertReplySchema = createInsertSchema(replies).omit({
-  id: true,
-  createdAt: true,
+export const insertReplySchema = z.object({
+  feedbackId: z.string().min(1),
+  userId: z.string().min(1),
+  userName: z.string().min(1),
+  userRole: z.string().min(1),
+  content: z.string().min(1),
 });
 
-export const insertFeedbackSchema = createInsertSchema(feedback).omit({
-  id: true,
-  createdAt: true,
-  studentName: true,
-  studentId: true,
-  subject: true,
+export const insertFeedbackSchema = z.object({
+  teacherId: z.string().min(1),
+  isAnonymous: z.boolean().optional(),
+  // Accept numeric strings from forms and coerce them to numbers
+  rating: z.coerce.number().min(1).max(5),
+  comment: z.string().optional().nullable(),
+  subject: z.string().optional().nullable(),
 });
 
-export const insertDoubtSchema = createInsertSchema(doubts).omit({
-  id: true,
-  createdAt: true,
-  answeredAt: true,
-  status: true,
-  studentName: true,
-  studentId: true,
+export const insertDoubtSchema = z.object({
+  question: z.string().min(1),
 });
-
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
-export type InsertTeacher = z.infer<typeof insertTeacherSchema>;
-export type UpdateTeacher = z.infer<typeof updateTeacherSchema>;
-export type Teacher = typeof teachers.$inferSelect;
-export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
-export type Feedback = typeof feedback.$inferSelect;
-export type InsertReply = z.infer<typeof insertReplySchema>;
-export type Reply = typeof replies.$inferSelect;
-export type FeedbackAnalysis = typeof feedbackAnalysis.$inferSelect;
-export type TeacherSummary = typeof teacherSummaries.$inferSelect;
-export type ChatHistory = typeof chatHistory.$inferSelect;
-export type Favorite = typeof favorites.$inferSelect;
-export type InsertDoubt = z.infer<typeof insertDoubtSchema>;
-export type Doubt = typeof doubts.$inferSelect;

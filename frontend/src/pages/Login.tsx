@@ -59,7 +59,7 @@ export default function Login() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md glass-card">
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center">
             <div className="rounded-full bg-primary/10 p-3">
@@ -119,7 +119,7 @@ export default function Login() {
             </Link>
           </div>
 
-          <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+          <div className="mt-6 p-4 glass rounded-lg">
             <p className="text-xs text-muted-foreground text-center mb-2">Demo Admin Credentials</p>
             <div className="space-y-1 text-xs text-center">
               <p><span className="font-medium">Admin:</span> admin@edu.com / admin123</p>

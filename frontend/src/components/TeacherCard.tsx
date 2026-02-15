@@ -32,7 +32,13 @@ export function TeacherCard({ teacher, onGiveFeedback, hasGivenFeedback = false,
       <CardHeader className="flex flex-row items-start gap-4 pb-2">
         <Avatar className="h-12 w-12">
           <AvatarFallback className="bg-primary/10 text-primary font-medium">
-            {teacher.name.split(" ").map((n) => n[0]).join("")}
+            {(teacher.name ?? "T")
+              .trim()
+              .split(/\s+/)
+              .filter(Boolean)
+              .map((n) => n[0])
+              .join("")
+              .toUpperCase() || "T"}
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 space-y-1">

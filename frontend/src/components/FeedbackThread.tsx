@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -30,6 +31,13 @@ export function FeedbackThread({ feedbackId, showReplyForm = true, feedbackComme
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!user || (user.role !== "teacher" && user.role !== "admin")) return;
+    apiRequest("POST", `/api/feedback/${feedbackId}/read`).catch(() => {
+      // best-effort: don't show a toast for this
+    });
+  }, [feedbackId, user]);
 
   const { data: replies = [], isLoading } = useQuery<Reply[]>({
     queryKey: [`/api/feedback/${feedbackId}/replies`],
@@ -78,7 +86,13 @@ export function FeedbackThread({ feedbackId, showReplyForm = true, feedbackComme
                   <div className="flex items-start gap-3 flex-1">
                     <Avatar className="h-8 w-8">
                       <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                        {reply.userName.split(" ").map((n) => n[0]).join("")}
+                        {(reply.userName ?? "U")
+                          .trim()
+                          .split(/\s+/)
+                          .filter(Boolean)
+                          .map((n) => n[0])
+                          .join("")
+                          .toUpperCase() || "U"}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 space-y-1">

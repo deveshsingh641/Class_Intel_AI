@@ -45,7 +45,7 @@ export function Navbar() {
     : [];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full glass border-b border-border/60 shadow-sm shadow-black/5">
       <div className="container flex h-16 items-center justify-between gap-4 px-4 md:px-6">
         <Link href="/" className="flex items-center gap-2">
           <GraduationCap className="h-6 w-6 text-primary" />
@@ -59,6 +59,11 @@ export function Navbar() {
                 <Button
                   variant={location === link.href ? "secondary" : "ghost"}
                   size="sm"
+                  className={
+                    location === link.href
+                      ? "glass border border-border/60"
+                      : ""
+                  }
                   data-testid={`nav-${link.label.toLowerCase().replace(" ", "-")}`}
                 >
                   {link.label}
@@ -89,12 +94,18 @@ export function Navbar() {
                   <Button variant="ghost" size="icon" className="rounded-full" data-testid="button-user-menu">
                     <Avatar className="h-8 w-8">
                       <AvatarFallback className="bg-primary/10 text-primary">
-                        {user.name.split(" ").map((n) => n[0]).join("")}
+                        {(user.name ?? "U")
+                          .trim()
+                          .split(/\s+/)
+                          .filter(Boolean)
+                          .map((n) => n[0])
+                          .join("")
+                          .toUpperCase() || "U"}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="w-56 glass-card">
                   <div className="px-2 py-1.5">
                     <p className="font-medium">{user.name}</p>
                     <p className="text-xs text-muted-foreground">{user.email}</p>
@@ -118,7 +129,7 @@ export function Navbar() {
                     <Menu className="h-5 w-5" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="right" className="w-64">
+                <SheetContent side="right" className="w-72 glass-card border border-border/60">
                   <nav className="flex flex-col gap-2 mt-6">
                     {navLinks.map((link) => (
                       <Link key={link.href} href={link.href}>

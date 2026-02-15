@@ -4,10 +4,38 @@ function getAuthToken(): string | null {
   return localStorage.getItem("token");
 }
 
-function withApiBase(url: string): string {
+let apiBaseUrl: string | null = null;
+
+export function getApiBaseUrl(): string {
+  if (apiBaseUrl) return apiBaseUrl;
+  
+  let base = (import.meta as any).env?.VITE_API_URL as string | undefined;
+  
+  // Auto-detect backend API from current hostname if not configured
+  if (!base) {
+    if (typeof window !== "undefined") {
+      const backendPort = (import.meta as any).env?.VITE_BACKEND_PORT || 5001;
+      base = `http://${window.location.hostname}:${backendPort}`;
+      if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+        console.log(
+          `🔗 Auto-detected backend API: ${base} (Your current IP: ${window.location.hostname})`
+        );
+      }
+    } else {
+      return "/api"; // Fallback for SSR or non-browser environments
+    }
+  } else {
+    console.log(`🔗 Using configured backend API: ${base}`);
+  }
+  
+  apiBaseUrl = base;
+  return base;
+}
+
+export function withApiBase(url: string): string {
   if (/^https?:\/\//i.test(url)) return url;
-  const base = (import.meta as any).env?.VITE_API_URL as string | undefined;
-  if (!base) return url;
+  const base = getApiBaseUrl();
+  
   if (!url.startsWith("/")) return `${base.replace(/\/$/, "")}/${url}`;
   return `${base.replace(/\/$/, "")}${url}`;
 }
@@ -21,7 +49,9 @@ async function throwIfResNotOk(res: Response) {
     } catch {
       errorMessage = await res.text() || errorMessage;
     }
-    throw new Error(errorMessage);
+    const err = new Error(errorMessage) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
   }
 }
 

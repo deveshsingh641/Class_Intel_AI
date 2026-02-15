@@ -50,6 +50,7 @@ export default function QrFeedbackPage() {
           rating,
           comment: comment.trim() || undefined,
         }),
+        credentials: "include",
       });
 
       if (!res.ok) {

@@ -12,37 +12,41 @@ export default function Home() {
       <section className="py-16 md:py-24 lg:py-32">
         <div className="container px-4 md:px-6">
           <div className="flex flex-col items-center text-center space-y-8">
-            <div className="rounded-full bg-primary/10 p-4">
-              <GraduationCap className="h-12 w-12 text-primary" />
-            </div>
-            <div className="space-y-4 max-w-3xl">
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight">
-                Transform Education Through{" "}
-                <span className="text-primary">Feedback</span>
-              </h1>
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                A comprehensive platform for students to share feedback and teachers to track
-                their performance. Build a better learning environment together.
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Link href="/signup">
-                <Button size="lg" className="gap-2" data-testid="button-get-started">
-                  Get Started <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/login">
-                <Button size="lg" variant="outline" data-testid="button-sign-in">
-                  Sign In
-                </Button>
-              </Link>
+            <div className="glass-card rounded-3xl px-6 py-10 md:px-10 md:py-14 max-w-4xl w-full">
+              <div className="flex flex-col items-center text-center space-y-8">
+                <div className="rounded-full bg-primary/10 p-4">
+                  <GraduationCap className="h-12 w-12 text-primary" />
+                </div>
+                <div className="space-y-4 max-w-3xl">
+                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight">
+                    Transform Education Through{" "}
+                    <span className="text-primary">Feedback</span>
+                  </h1>
+                  <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                    A comprehensive platform for students to share feedback and teachers to track
+                    their performance. Build a better learning environment together.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <Link href="/signup">
+                    <Button size="lg" className="gap-2" data-testid="button-get-started">
+                      Get Started <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Link href="/login">
+                    <Button size="lg" variant="outline" className="glass" data-testid="button-sign-in">
+                      Sign In
+                    </Button>
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-16 bg-muted/30">
+      <section className="py-16">
         <div className="container px-4 md:px-6">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Why EduFeedback?</h2>
@@ -51,7 +55,7 @@ export default function Home() {
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="hover-elevate">
+            <Card className="glass-card hover-elevate">
               <CardContent className="pt-6 text-center">
                 <div className="rounded-full bg-primary/10 p-3 w-fit mx-auto mb-4">
                   <MessageSquare className="h-6 w-6 text-primary" />
@@ -62,7 +66,7 @@ export default function Home() {
                 </p>
               </CardContent>
             </Card>
-            <Card className="hover-elevate">
+            <Card className="glass-card hover-elevate">
               <CardContent className="pt-6 text-center">
                 <div className="rounded-full bg-primary/10 p-3 w-fit mx-auto mb-4">
                   <BarChart3 className="h-6 w-6 text-primary" />
@@ -73,7 +77,7 @@ export default function Home() {
                 </p>
               </CardContent>
             </Card>
-            <Card className="hover-elevate">
+            <Card className="glass-card hover-elevate">
               <CardContent className="pt-6 text-center">
                 <div className="rounded-full bg-primary/10 p-3 w-fit mx-auto mb-4">
                   <Users className="h-6 w-6 text-primary" />
@@ -84,7 +88,7 @@ export default function Home() {
                 </p>
               </CardContent>
             </Card>
-            <Card className="hover-elevate">
+            <Card className="glass-card hover-elevate">
               <CardContent className="pt-6 text-center">
                 <div className="rounded-full bg-primary/10 p-3 w-fit mx-auto mb-4">
                   <Star className="h-6 w-6 text-primary" />
@@ -124,7 +128,7 @@ export default function Home() {
       </section>
 
       {/* Activity & Leaderboard Section */}
-      <section className="py-16 bg-muted/30">
+      <section className="py-16">
         <div className="container px-4 md:px-6">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Live Activity & Top Performers</h2>
@@ -148,9 +152,9 @@ export default function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 bg-muted/30">
+      <section className="py-16">
         <div className="container px-4 md:px-6">
-          <div className="text-center max-w-2xl mx-auto">
+          <div className="glass-card rounded-3xl p-10 text-center max-w-2xl mx-auto">
             <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
             <p className="text-muted-foreground mb-8">
               Join our platform today and be part of the educational transformation

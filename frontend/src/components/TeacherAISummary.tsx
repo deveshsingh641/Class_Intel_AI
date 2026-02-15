@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, TrendingUp, AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface TeacherAISummaryProps {
   teacherId: string;
@@ -15,25 +16,20 @@ export function TeacherAISummary({ teacherId }: TeacherAISummaryProps) {
   const { data: summary, refetch, isLoading } = useQuery({
     queryKey: ["teacher-summary", teacherId],
     queryFn: async () => {
-      const res = await fetch(`/api/ai/teacher-summary/${teacherId}`);
-      if (!res.ok) return null;
-      return res.json();
+      try {
+        const res = await apiRequest("GET", `/api/ai/teacher-summary/${teacherId}`);
+        return res.json();
+      } catch (error) {
+        const err = error as (Error & { status?: number });
+        if (err?.status === 404) return null;
+        return null;
+      }
     },
   });
 
   const generateMutation = useMutation({
     mutationFn: async () => {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/ai/teacher-summary/${teacherId}`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
-      });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Failed to generate summary");
-      }
+      const res = await apiRequest("POST", `/api/ai/teacher-summary/${teacherId}`);
       return res.json();
     },
     onSuccess: () => {

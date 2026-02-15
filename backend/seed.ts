@@ -1,7 +1,5 @@
-import { db } from "./db";
-import { teachers, users } from "@shared/schema";
-import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { connectDb } from "./db";
+import { storage } from "./storage";
 
 const INITIAL_TEACHERS = [
   { name: "Shweta Kaushik", department: "Computer Science", subject: "Web Technology" },
@@ -19,12 +17,14 @@ async function seed() {
   console.log("Seeding database...");
 
   try {
+    await connectDb();
+
     // Check if teachers already exist
-    const existingTeachers = await db.select().from(teachers);
+    const existingTeachers = await storage.getTeachers();
     if (existingTeachers.length === 0) {
       console.log("Adding initial teachers...");
       for (const teacher of INITIAL_TEACHERS) {
-        await db.insert(teachers).values(teacher);
+        await storage.createTeacher(teacher);
       }
       console.log(`✅ Added ${INITIAL_TEACHERS.length} teachers`);
     } else {
@@ -32,14 +32,13 @@ async function seed() {
     }
 
     // Create admin user if doesn't exist
-    const [existingAdmin] = await db.select().from(users).where(eq(users.email, "admin@edu.com"));
+    const existingAdmin = await storage.getUserByEmail("admin@edu.com");
     if (!existingAdmin) {
       console.log("Creating admin user...");
-      const hashedPassword = await bcrypt.hash("admin123", 10);
-      await db.insert(users).values({
+      await storage.createUser({
         username: "admin",
         email: "admin@edu.com",
-        password: hashedPassword,
+        password: "admin123",
         name: "Administrator",
         role: "admin",
       });

@@ -5,6 +5,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Teacher } from "@shared/schema";
 import { Skeleton } from "@/components/ui/skeleton";
 
+type TeacherWithId = Teacher & { id: string };
+
 export default function Favorites() {
   const { data: teachers = [], isLoading, error } = useQuery<Teacher[]>({
     queryKey: ["/api/teachers"],
@@ -44,9 +46,18 @@ export default function Favorites() {
     },
   });
 
+  const normalizedTeachers = useMemo<TeacherWithId[]>(
+    () =>
+      teachers.map((t) => ({
+        ...(t as Teacher),
+        id: (t as any).id ?? (t as any)._id ?? "",
+      })),
+    [teachers]
+  );
+
   const favoriteTeachers = useMemo(
-    () => teachers.filter((t) => favoriteTeacherIds.includes(t.id)),
-    [teachers, favoriteTeacherIds]
+    () => normalizedTeachers.filter((t) => favoriteTeacherIds.includes(t.id)),
+    [normalizedTeachers, favoriteTeacherIds]
   );
 
   if (isLoading) {

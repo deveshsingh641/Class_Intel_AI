@@ -102,12 +102,14 @@ export function ActivityFeed({ limit = 10, className }: { limit?: number; classN
                     <div className="flex items-center gap-2 min-w-0">
                       <Avatar className="h-8 w-8">
                         <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                          {activity.studentName
-                            .split(" ")
+                          {(activity.studentName ?? "S")
+                            .trim()
+                            .split(/\s+/)
+                            .filter(Boolean)
                             .map((n) => n[0])
                             .join("")
                             .toUpperCase()
-                            .slice(0, 2)}
+                            .slice(0, 2) || "S"}
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0">

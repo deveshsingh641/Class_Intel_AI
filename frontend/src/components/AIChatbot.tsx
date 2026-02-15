@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { MessageCircle, Send, X, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface Message {
   role: "user" | "assistant";
@@ -19,33 +20,14 @@ export function AIChatbot() {
 
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
-      const token = localStorage.getItem("token");
-      const res = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({ message }),
+      const res = await apiRequest("POST", "/api/ai/chat", {
+        message,
+        history: messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
       });
-      if (!res.ok) {
-        const contentType = res.headers.get("content-type") || "";
-        if (contentType.includes("application/json")) {
-          const error = await res.json().catch(() => ({} as any));
-          throw new Error((error as any).error || "Failed to send message");
-        } else {
-          const text = await res.text().catch(() => "");
-          throw new Error(text || "Failed to send message");
-        }
-      }
-
-      const contentType = res.headers.get("content-type") || "";
-      if (contentType.includes("application/json")) {
-        return res.json();
-      }
-
-      const text = await res.text();
-      return { response: text } as { response: string };
+      return res.json() as Promise<{ response: string }>;
     },
     onSuccess: (data) => {
       setMessages((prev) => [

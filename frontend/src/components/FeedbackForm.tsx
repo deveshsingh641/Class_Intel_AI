@@ -14,6 +14,7 @@ import { StarRating } from "./StarRating";
 import { FeedbackTemplates } from "./FeedbackTemplates";
 import { Confetti } from "./Confetti";
 import { BookOpen, Mic, MicOff } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 export interface TeacherData {
   id: string;
@@ -184,50 +185,9 @@ export function FeedbackForm({ teacher, open, onOpenChange, onSubmit, isSubmitti
     if (!comment.trim()) return;
     try {
       setIsImproving(true);
-      const token = localStorage.getItem("token");
-      const res = await fetch("/api/ai/improve-feedback", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ comment }),
-      });
-
-      if (!res.ok) {
-        let message = "Failed to improve feedback";
-        try {
-          const contentType = res.headers.get("content-type") || "";
-          if (contentType.includes("application/json")) {
-            const data = await res.json();
-            message = (data as any).error || (data as any).message || message;
-          } else {
-            const text = await res.text();
-            if (text && !text.startsWith("<")) {
-              message = text;
-            }
-          }
-        } catch {
-          // ignore parse errors and keep default message
-        }
-        throw new Error(message);
-      }
-
-      const contentType = res.headers.get("content-type") || "";
-      let improved: string | undefined;
-
-      if (contentType.includes("application/json")) {
-        const data = (await res.json()) as { improvedComment?: string };
-        if (data.improvedComment && typeof data.improvedComment === "string") {
-          improved = data.improvedComment;
-        }
-      } else {
-        // Fallback: try to use plain text body as improved feedback
-        const text = await res.text();
-        if (text && !text.startsWith("<")) {
-          improved = text;
-        }
-      }
+      const res = await apiRequest("POST", "/api/ai/improve-feedback", { comment });
+      const data = (await res.json()) as { improvedComment?: string };
+      const improved = typeof data.improvedComment === "string" ? data.improvedComment : "";
 
       if (!improved || !improved.trim()) {
         alert("AI could not improve your feedback. Please try again later.");
@@ -260,154 +220,158 @@ export function FeedbackForm({ teacher, open, onOpenChange, onSubmit, isSubmitti
         }} 
       />
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle data-testid="dialog-title-feedback">Submit Feedback</DialogTitle>
-          <DialogDescription>
-            Share your experience with this course
-          </DialogDescription>
-        </DialogHeader>
+        <DialogContent className="flex flex-col max-h-[90vh] gap-0 p-0 sm:max-w-lg">
+          <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0 border-b">
+            <DialogTitle data-testid="dialog-title-feedback">Submit Feedback</DialogTitle>
+            <DialogDescription>
+              Share your experience with this course
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="font-medium" data-testid="text-teacher-feedback-name">{teacher.name}</span>
-            <Badge variant="secondary">{teacher.department}</Badge>
-          </div>
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            <div className="space-y-4">
+              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium" data-testid="text-teacher-feedback-name">{teacher.name}</span>
+                  <Badge variant="secondary">{teacher.department}</Badge>
+                </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="doubt">Your Doubt (Optional)</Label>
-              <span className="text-xs text-muted-foreground">
-                {doubt.length}/300
-              </span>
-            </div>
-            <Textarea
-              id="doubt"
-              placeholder="Ask any question or doubt you still have about this lecture..."
-              value={doubt}
-              onChange={(e) => setDoubt(e.target.value.slice(0, 300))}
-              className="min-h-[80px] resize-none"
-            />
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <BookOpen className="h-4 w-4" />
-            <span>{teacher.subject}</span>
-          </div>
-        </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="doubt">Your Doubt (Optional)</Label>
+                    <span className="text-xs text-muted-foreground">
+                      {doubt.length}/300
+                    </span>
+                  </div>
+                  <Textarea
+                    id="doubt"
+                    placeholder="Ask any question or doubt you still have about this lecture..."
+                    value={doubt}
+                    onChange={(e) => setDoubt(e.target.value.slice(0, 300))}
+                    className="min-h-[80px] resize-none"
+                  />
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <BookOpen className="h-4 w-4" />
+                  <span>{teacher.subject}</span>
+                </div>
+              </div>
 
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label>Your Rating</Label>
-            <div className="flex justify-center py-2">
-              <StarRating
-                rating={rating}
-                size="lg"
-                interactive
-                onRatingChange={setRating}
-              />
-            </div>
-            {rating > 0 && (
-              <p className="text-center text-sm text-muted-foreground" data-testid="text-rating-label">
-                {rating === 1 && "Poor"}
-                {rating === 2 && "Fair"}
-                {rating === 3 && "Good"}
-                {rating === 4 && "Very Good"}
-                {rating === 5 && "Excellent"}
-              </p>
-            )}
-          </div>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Your Rating</Label>
+                  <div className="flex justify-center py-2">
+                    <StarRating
+                      rating={rating}
+                      size="lg"
+                      interactive
+                      onRatingChange={setRating}
+                    />
+                  </div>
+                  {rating > 0 && (
+                    <p className="text-center text-sm text-muted-foreground" data-testid="text-rating-label">
+                      {rating === 1 && "Poor"}
+                      {rating === 2 && "Fair"}
+                      {rating === 3 && "Good"}
+                      {rating === 4 && "Very Good"}
+                      {rating === 5 && "Excellent"}
+                    </p>
+                  )}
+                </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="comment">Your Feedback (Optional)</Label>
-              <div className="flex items-center gap-2">
-                {transcriptionEnabled && (
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant={isRecording ? "destructive" : "outline"}
-                    onClick={isRecording ? stopRecording : startRecording}
-                    disabled={isTranscribing}
-                    data-testid="button-voice-feedback"
-                  >
-                    {isRecording ? (
-                      <MicOff className="h-4 w-4" />
-                    ) : (
-                      <Mic className="h-4 w-4" />
-                    )}
-                  </Button>
-                )}
-                <FeedbackTemplates onSelectTemplate={handleTemplateSelect} />
-                <span className="text-xs text-muted-foreground">
-                  {comment.length}/500
-                </span>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="comment">Your Feedback (Optional)</Label>
+                    <div className="flex items-center gap-2">
+                      {transcriptionEnabled && (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant={isRecording ? "destructive" : "outline"}
+                          onClick={isRecording ? stopRecording : startRecording}
+                          disabled={isTranscribing}
+                          data-testid="button-voice-feedback"
+                        >
+                          {isRecording ? (
+                            <MicOff className="h-4 w-4" />
+                          ) : (
+                            <Mic className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
+                      <FeedbackTemplates onSelectTemplate={handleTemplateSelect} />
+                      <span className="text-xs text-muted-foreground">
+                        {comment.length}/500
+                      </span>
+                    </div>
+                  </div>
+                  <Textarea
+                    id="comment"
+                    placeholder="Share your thoughts about the teaching style, course content, and overall experience..."
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value.slice(0, 500))}
+                    className="min-h-[120px] resize-none"
+                    data-testid="input-feedback-comment"
+                  />
+                  <div className="flex justify-end mt-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="text-xs"
+                      onClick={handleImproveFeedback}
+                      disabled={isImproving || !comment.trim()}
+                    >
+                      {isImproving ? "Improving..." : "Improve my feedback with AI"}
+                    </Button>
+                  </div>
+                  {isRecording && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      Recording... click the mic again to stop.
+                    </p>
+                  )}
+                  {isTranscribing && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Converting your voice to text...
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="anonymous"
+                      type="checkbox"
+                      className="h-4 w-4 rounded border border-input"
+                      checked={isAnonymous}
+                      onChange={(e) => setIsAnonymous(e.target.checked)}
+                    />
+                    <Label htmlFor="anonymous" className="text-sm">
+                      Submit anonymously
+                    </Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground max-w-xs text-right">
+                    Your name is hidden from teachers, but the system may still use your account to prevent duplicate feedback.
+                  </p>
+                </div>
               </div>
             </div>
-            <Textarea
-              id="comment"
-              placeholder="Share your thoughts about the teaching style, course content, and overall experience..."
-              value={comment}
-              onChange={(e) => setComment(e.target.value.slice(0, 500))}
-              className="min-h-[120px] resize-none"
-              data-testid="input-feedback-comment"
-            />
-            <div className="flex justify-end mt-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="text-xs"
-                onClick={handleImproveFeedback}
-                disabled={isImproving || !comment.trim()}
-              >
-                {isImproving ? "Improving..." : "Improve my feedback with AI"}
-              </Button>
-            </div>
-            {isRecording && (
-              <p className="text-xs text-amber-600 mt-1">
-                Recording... click the mic again to stop.
-              </p>
-            )}
-            {isTranscribing && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Converting your voice to text...
-              </p>
-            )}
           </div>
 
-          <div className="flex items-center justify-between pt-2">
-            <div className="flex items-center gap-2">
-              <input
-                id="anonymous"
-                type="checkbox"
-                className="h-4 w-4 rounded border border-input"
-                checked={isAnonymous}
-                onChange={(e) => setIsAnonymous(e.target.checked)}
-              />
-              <Label htmlFor="anonymous" className="text-sm">
-                Submit anonymously
-              </Label>
-            </div>
-            <p className="text-xs text-muted-foreground max-w-xs text-right">
-              Your name is hidden from teachers, but the system may still use your account to prevent duplicate feedback.
-            </p>
+          <div className="flex gap-2 justify-end px-6 py-4 border-t flex-shrink-0">
+            <Button variant="outline" onClick={handleClose} data-testid="button-cancel-feedback">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={rating === 0 || isSubmitting}
+              data-testid="button-submit-feedback"
+            >
+              {isSubmitting ? "Submitting..." : "Submit Feedback"}
+            </Button>
           </div>
-        </div>
-
-        <div className="flex gap-2 justify-end">
-          <Button variant="outline" onClick={handleClose} data-testid="button-cancel-feedback">
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={rating === 0 || isSubmitting}
-            data-testid="button-submit-feedback"
-          >
-            {isSubmitting ? "Submitting..." : "Submit Feedback"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

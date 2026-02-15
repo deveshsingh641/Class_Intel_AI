@@ -157,9 +157,10 @@ export function AdvancedSearch({ onSearch, departments = [], className }: Advanc
                         step="0.1"
                         placeholder="Min"
                         value={filters.minRating || ""}
-                        onChange={(e) =>
-                          handleFilterChange("minRating", parseFloat(e.target.value) || 0)
-                        }
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          handleFilterChange("minRating", isNaN(val) ? 0 : Math.max(0, Math.min(5, val)));
+                        }}
                         className="w-20"
                       />
                       <span className="text-muted-foreground">to</span>
@@ -170,9 +171,10 @@ export function AdvancedSearch({ onSearch, departments = [], className }: Advanc
                         step="0.1"
                         placeholder="Max"
                         value={filters.maxRating || ""}
-                        onChange={(e) =>
-                          handleFilterChange("maxRating", parseFloat(e.target.value) || 5)
-                        }
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          handleFilterChange("maxRating", isNaN(val) ? 5 : Math.max(0, Math.min(5, val)));
+                        }}
                         className="w-20"
                       />
                     </div>
@@ -186,9 +188,10 @@ export function AdvancedSearch({ onSearch, departments = [], className }: Advanc
                       min="0"
                       placeholder="0"
                       value={filters.minFeedback || ""}
-                      onChange={(e) =>
-                        handleFilterChange("minFeedback", parseInt(e.target.value) || 0)
-                      }
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        handleFilterChange("minFeedback", isNaN(val) ? 0 : Math.max(0, val));
+                      }}
                     />
                   </div>
 

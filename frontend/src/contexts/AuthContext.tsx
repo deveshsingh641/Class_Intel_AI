@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { withApiBase, getApiBaseUrl } from "@/lib/queryClient";
 
 export type UserRole = "student" | "teacher" | "admin";
 
@@ -34,22 +35,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const storedUser = localStorage.getItem("user");
-    
-    if (token && storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    const initAuth = async () => {
+      // Log the API base URL at startup
+      getApiBaseUrl();
+      
+      const token = localStorage.getItem("token");
+      const storedUser = localStorage.getItem("user");
+
+      if (!token || !storedUser) {
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(withApiBase("/api/auth/me"), {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          console.error("Auth failed with status:", response.status);
+          throw new Error("Session expired");
+        }
+
+        const freshUser = await response.json();
+        localStorage.setItem("user", JSON.stringify(freshUser));
+        setUser(freshUser);
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await fetch(withApiBase("/api/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -69,10 +106,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signup = async (data: SignupData) => {
     setIsLoading(true);
     try {
-      const response = await fetch("/api/auth/signup", {
+      const response = await fetch(withApiBase("/api/auth/signup"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -90,6 +128,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      void fetch(withApiBase("/api/auth/logout"), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: "include",
+      }).catch(() => {
+        // Ignore network errors on logout; we still clear local state.
+      });
+    }
     setUser(null);
     localStorage.removeItem("token");
     localStorage.removeItem("user");

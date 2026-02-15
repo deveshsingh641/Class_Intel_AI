@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { Navbar } from "@/components/Navbar";
+import { AIChatbot } from "@/components/AIChatbot";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import Login from "@/pages/Login";
@@ -152,9 +153,10 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
           <TooltipProvider>
-            <div className="min-h-screen bg-background">
+            <div className="min-h-screen bg-transparent">
               <Navbar />
               <Router />
+              <AIChatbot />
             </div>
             <Toaster />
           </TooltipProvider>

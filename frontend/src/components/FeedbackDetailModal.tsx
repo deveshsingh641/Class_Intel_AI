@@ -7,9 +7,11 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Star, Calendar, User, MessageSquare, Clock, TrendingUp, ThumbsUp, Award } from "lucide-react";
+import { Star, Calendar, User, MessageSquare, Clock, TrendingUp, ThumbsUp, Award, Activity } from "lucide-react";
 import { FeedbackThread } from "./FeedbackThread";
 import type { Feedback } from "@shared/schema";
+import { useState } from "react";
+import { apiRequest } from "@/lib/queryClient";
 
 interface FeedbackDetailModalProps {
   feedback: Feedback | null;
@@ -33,6 +35,41 @@ export function FeedbackDetailModal({
       1: "Poor",
     };
     return labels[rating] || "Unknown";
+  };
+
+  const [analysis, setAnalysis] = useState<{
+    sentiment: string;
+    sentimentScore: number;
+    qualityScore: number;
+    keywords: string[];
+  } | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  const handleAnalyze = async () => {
+    if (analyzing) return;
+    setAnalyzing(true);
+    setAnalysisError(null);
+    try {
+      const res = await apiRequest("POST", `/api/ai/analyze-feedback/${feedback.id}`);
+      const data = (await res.json()) as {
+        sentiment: string;
+        sentimentScore: number;
+        qualityScore: number;
+        keywords: string[];
+      };
+      setAnalysis({
+        sentiment: data.sentiment,
+        sentimentScore: data.sentimentScore,
+        qualityScore: data.qualityScore,
+        keywords: data.keywords || [],
+      });
+    } catch (error) {
+      const err = error as Error;
+      setAnalysisError(err.message || "Failed to analyze feedback");
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   const getRatingColor = (rating: number) => {
@@ -178,7 +215,6 @@ export function FeedbackDetailModal({
             </div>
           )}
 
-          {/* Enhanced Additional Details */}
           <div className="space-y-3 p-5 bg-gradient-to-br from-muted/30 to-muted/10 rounded-lg border border-muted-foreground/10 animate-fadeScale" style={{ animationDelay: "0.2s" }}>
             <div className="flex items-center gap-2 mb-3">
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -199,6 +235,44 @@ export function FeedbackDetailModal({
                   {feedback.studentId}
                 </code>
               </div>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    AI Analysis
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" disabled={analyzing} onClick={handleAnalyze}>
+                  {analyzing ? "Analyzing..." : "Analyze with AI"}
+                </Button>
+              </div>
+              {analysisError && (
+                <p className="text-xs text-red-500">
+                  {analysisError}
+                </p>
+              )}
+              {analysis && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  <div className="p-2 rounded bg-background/60">
+                    <p className="text-muted-foreground font-medium">Sentiment</p>
+                    <p className="font-semibold capitalize">{analysis.sentiment}</p>
+                    <p className="text-[11px] text-muted-foreground">Score: {analysis.sentimentScore.toFixed(2)}</p>
+                  </div>
+                  <div className="p-2 rounded bg-background/60">
+                    <p className="text-muted-foreground font-medium">Quality Score</p>
+                    <p className="font-semibold">{analysis.qualityScore.toFixed(2)}/5</p>
+                  </div>
+                  <div className="p-2 rounded bg-background/60">
+                    <p className="text-muted-foreground font-medium">Keywords</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {analysis.keywords.length > 0 ? analysis.keywords.join(", ") : "None detected"}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

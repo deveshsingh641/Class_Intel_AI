@@ -1,22 +1,67 @@
 // Load environment variables FIRST
 import dotenv from "dotenv";
 import path from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
 
-dotenv.config();
-if (!process.env.DATABASE_URL) {
-  dotenv.config({ path: path.resolve(process.cwd(), "..", ".env") });
-}
+// Get the directory of the current module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-console.log("Loaded DATABASE_URL =", process.env.DATABASE_URL ? "set" : "missing");
+// Load .env from project root (parent directory of backend/)
+const envPath = path.resolve(__dirname, "..", ".env");
+console.log("Loading .env from:", envPath);
+dotenv.config({ path: envPath });
+
+console.log("Loaded MONGODB_URI =", process.env.MONGODB_URI ? "set" : "missing");
+console.log("Loaded OPENAI_API_KEY =", process.env.OPENAI_API_KEY ? "set" : "missing");
+console.log("Loaded HF_API_TOKEN =", process.env.HF_API_TOKEN ? "set" : "missing");
 
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { registerRoutes } from "./routes";
 import { createServer } from "http";
 import fs from "fs";
+import { connectDb, disconnectDb } from "./db";
 
 const app = express();
 const httpServer = createServer(app);
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function connectDbWithRetry() {
+  const isProduction = process.env.NODE_ENV === "production";
+  let attempt = 0;
+  let delayMs = 1000;
+
+  while (true) {
+    try {
+      await connectDb();
+      return;
+    } catch (error) {
+      attempt += 1;
+      const message = error instanceof Error ? error.message : String(error);
+
+      console.error("Database connection failed:", message);
+      if (message.toLowerCase().includes("whitelist")) {
+        console.error(
+          "MongoDB Atlas is likely blocking this IP. Add your current public IP (or a CIDR range) to Atlas → Network Access → IP Access List.",
+        );
+      }
+
+      if (isProduction) {
+        throw error;
+      }
+
+      const waitForMs = Math.min(delayMs, 30000);
+      console.log(`Retrying database connection in ${Math.ceil(waitForMs / 1000)}s...`);
+      await sleep(waitForMs);
+      delayMs = delayMs * 2;
+    }
+  }
+}
 
 const corsOrigin = process.env.CORS_ORIGIN;
 app.use(
@@ -87,6 +132,8 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
+    await connectDbWithRetry();
+
     // Seed database only when explicitly enabled (avoid slowing down cold starts)
     const shouldSeed =
       process.env.NODE_ENV !== "production" ||
@@ -131,22 +178,36 @@ app.use((req, res, next) => {
     }
 
     // Use the PORT from environment or default to 5001
-    const port = parseInt(process.env.BACKEND_PORT || process.env.PORT || "5001", 10);
-    httpServer.listen(port, "0.0.0.0", () => {
-      const url = `http://localhost:${port}`;
-      log(`serving on port ${port}`);
-      console.log("");
-      console.log("╔══════════════════════════════════════╗");
-      console.log("║   🎓 EduFeedback is running!        ║");
-      console.log(`║   Open: ${url.padEnd(25)} ║`);
-      console.log("╚══════════════════════════════════════╝");
-      console.log("");
-      console.log(`🌐 Server URL: ${url}`);
-      console.log(`📝 Open this link in your browser: ${url}`);
-      console.log("");
+    const desiredPort = parseInt(process.env.BACKEND_PORT || process.env.PORT || "5001", 10);
+
+    httpServer.on("error", (err: any) => {
+      if (err?.code === "EADDRINUSE") {
+        console.error(
+          `Backend port ${desiredPort} is already in use. Stop the process using it, or change BACKEND_PORT, then re-run npm run dev.`,
+        );
+        process.exit(1);
+      }
+      throw err;
     });
+
+    await new Promise<void>((resolve) => {
+      httpServer.listen(desiredPort, "0.0.0.0", () => resolve());
+    });
+
+    const url = `http://localhost:${desiredPort}`;
+    log(`serving on port ${desiredPort}`);
+    console.log("");
+    console.log("╔══════════════════════════════════════╗");
+    console.log("║   🎓 EduFeedback is running!        ║");
+    console.log(`║   Open: ${url.padEnd(25)} ║`);
+    console.log("╚══════════════════════════════════════╝");
+    console.log("");
+    console.log(`🌐 Server URL: ${url}`);
+    console.log(`📝 Open this link in your browser: ${url}`);
+    console.log("");
   } catch (error) {
     console.error("Fatal server error:", error);
+    await disconnectDb().catch(() => {});
     process.exit(1);
   }
 })();

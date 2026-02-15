@@ -27,20 +27,7 @@ export function ReplyForm({ feedbackId, onSuccess, feedbackComment }: ReplyFormP
     enabled: !!feedbackComment && !!user,
     queryFn: async () => {
       try {
-        const res = await fetch("/api/ai/reply-templates", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify({ comment: feedbackComment }),
-        });
-
-        if (!res.ok) {
-          const error = await res.json().catch(() => ({} as any));
-          throw new Error(error.error || "Failed to load reply templates");
-        }
-
+        const res = await apiRequest("POST", "/api/ai/reply-templates", { comment: feedbackComment });
         return (await res.json()) as { templates: string[] };
       } catch (error) {
         const err = error instanceof Error ? error : new Error("Failed to load reply templates");
