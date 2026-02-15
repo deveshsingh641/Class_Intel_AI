@@ -30,7 +30,6 @@
     "openai": "^6.10.0",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
-    "rest-express": "file:..",
     "ws": "^8.18.0",
     "zod": "^3.25.0",
     "zod-validation-error": "^3.4.0"

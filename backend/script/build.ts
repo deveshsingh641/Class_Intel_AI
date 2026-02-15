@@ -58,7 +58,11 @@ async function buildAll() {
   const frontendDist = path.resolve(frontendRoot, "dist");
   const publicOut = path.resolve(process.cwd(), "dist", "public");
   await mkdir(publicOut, { recursive: true });
-  await cp(frontendDist, publicOut, { recursive: true });
+  try {
+    await cp(frontendDist, publicOut, { recursive: true });
+  } catch (e) {
+    console.log("Frontend dist not found, skipping copy");
+  }
 
   console.log("building server...");
   const pkg = JSON.parse(await readFile("package.json", "utf-8"));
