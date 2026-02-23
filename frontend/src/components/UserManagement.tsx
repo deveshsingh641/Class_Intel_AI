@@ -135,7 +135,7 @@ export function UserManagement() {
 
   const getRoleBadge = (role: string) => {
     const colors = {
-      admin: 'bg-purple-100 text-purple-800',
+      admin: 'bg-emerald-100 text-emerald-800',
       teacher: 'bg-blue-100 text-blue-800',
       student: 'bg-green-100 text-green-800',
     };

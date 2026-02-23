@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { StarRating } from "./StarRating";
 import { FeedbackThread } from "./FeedbackThread";
+import { AIFeedbackTags } from "./AIFeedbackTags";
 import { formatDistanceToNow } from "date-fns";
 import { Reply } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
@@ -89,6 +90,9 @@ export function FeedbackItem({ feedback, showReplies = true }: FeedbackItemProps
               <p className="text-sm text-muted-foreground leading-relaxed">
                 {feedback.comment}
               </p>
+            )}
+            {feedback.comment && (
+              <AIFeedbackTags feedbackId={feedback.id} />
             )}
             {showReplies && (
               <div className="flex items-center gap-2 mt-2 flex-wrap">

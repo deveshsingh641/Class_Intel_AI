@@ -67,7 +67,7 @@ export function FeedbackThread({ feedbackId, showReplyForm = true, feedbackComme
   const roleColors = {
     student: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
     teacher: "bg-green-500/10 text-green-600 dark:text-green-400",
-    admin: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+    admin: "bg-emerald-500/10 text-emerald-500 dark:text-emerald-400",
   };
 
   if (isLoading) {

@@ -53,7 +53,7 @@ export function TeacherAISummary({ teacherId }: TeacherAISummaryProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-purple-600" />
+            <Sparkles className="h-5 w-5 text-emerald-500" />
             AI-Generated Summary
           </CardTitle>
         </CardHeader>
@@ -69,13 +69,13 @@ export function TeacherAISummary({ teacherId }: TeacherAISummaryProps) {
       <Card className="border-2 border-dashed">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-purple-600" />
+            <Sparkles className="h-5 w-5 text-emerald-500" />
             AI-Generated Summary
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-center py-4">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center">
+            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-emerald-500 to-blue-600 rounded-full flex items-center justify-center">
               <Sparkles className="h-8 w-8 text-white" />
             </div>
             <p className="text-sm text-muted-foreground mb-4">
@@ -91,7 +91,7 @@ export function TeacherAISummary({ teacherId }: TeacherAISummaryProps) {
           <Button
             onClick={() => generateMutation.mutate()}
             disabled={generateMutation.isPending}
-            className="w-full bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700"
+            className="w-full bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-500 hover:to-blue-700"
           >
             {generateMutation.isPending ? (
               <>
@@ -111,14 +111,14 @@ export function TeacherAISummary({ teacherId }: TeacherAISummaryProps) {
   }
 
   return (
-    <Card className="border-2 border-purple-200 dark:border-purple-900">
-      <CardHeader className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950 dark:to-blue-950">
+    <Card className="border-2 border-emerald-200 dark:border-emerald-900">
+      <CardHeader className="bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-950 dark:to-blue-950">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-purple-600" />
+            <Sparkles className="h-5 w-5 text-emerald-500" />
             AI-Generated Summary
           </CardTitle>
-          <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+          <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
             AI Powered
           </Badge>
         </div>

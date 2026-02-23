@@ -3,26 +3,52 @@ import { StatCard } from "@/components/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Users, MessageSquare, Star, Plus, GraduationCap, AlertTriangle, ShieldAlert, Check, X, Settings, BarChart3, FileSpreadsheet } from "lucide-react";
+import { Users, MessageSquare, Star, Plus, GraduationCap, AlertTriangle, ShieldAlert, Check, X, Settings, BarChart3, FileSpreadsheet, Brain, Zap, Activity, Lightbulb, Shield } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Teacher } from "@shared/schema";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { BulkTeacherImport } from "@/components/BulkTeacherImport";
 import { UserManagement } from "@/components/UserManagement";
 import { EnhancedAnalytics } from "@/components/EnhancedAnalytics";
 import { ActivityFeed } from "@/components/ActivityFeed";
+import { SentimentPieChart } from "@/components/SentimentPieChart";
+import { TopicFrequencyChart } from "@/components/TopicFrequencyChart";
+import { AISuggestionsPanel } from "@/components/AISuggestionsPanel";
+import { StudentRiskTable } from "@/components/StudentRiskTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function AdminPanel() {
   const { toast } = useToast();
   const [slaDays] = useState(5);
   const [overdueDeptFilter, setOverdueDeptFilter] = useState<string>("all");
+  const [selectedIntelTeacherId, setSelectedIntelTeacherId] = useState<string | "">("");
   const [overdueTeacherFilter, setOverdueTeacherFilter] = useState<string>("all");
 
   const { data: teachers = [], isLoading, error } = useQuery<Teacher[]>({
     queryKey: ["/api/teachers"],
   });
+
+  // Intelligence tab queries
+  const { data: aiHealth } = useQuery<{ status: string }>({
+    queryKey: ["/api/intelligence/health"],
+    refetchInterval: 60000,
+  });
+  const intelTeacherId = selectedIntelTeacherId || ((teachers[0] as any)?.id ?? (teachers[0] as any)?._id ?? "");
+  const { data: intelSentiment, isLoading: intelSentimentLoading } = useQuery<any>({
+    queryKey: [`/api/intelligence/sentiment/${intelTeacherId}`],
+    enabled: !!intelTeacherId,
+  });
+  const { data: intelTopics, isLoading: intelTopicsLoading } = useQuery<any>({
+    queryKey: [`/api/intelligence/topics/${intelTeacherId}`],
+    enabled: !!intelTeacherId,
+  });
+  const { data: intelSuggestions, isLoading: intelSuggestionsLoading } = useQuery<any>({
+    queryKey: [`/api/intelligence/suggestions/${intelTeacherId}`],
+    enabled: !!intelTeacherId,
+  });
+  const aiOnline = aiHealth?.status === "healthy";
 
   const { data: overdueDoubts = [] } = useQuery<{
     id: string;
@@ -173,8 +199,12 @@ export default function AdminPanel() {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="intelligence" className="flex items-center gap-1">
+              <Brain className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Intelligence</span>
+            </TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="import">Import</TabsTrigger>
@@ -349,6 +379,78 @@ export default function AdminPanel() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="intelligence" className="space-y-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Brain className="h-5 w-5 text-emerald-500" />
+                  <span className="bg-gradient-to-r from-emerald-500 to-blue-500 bg-clip-text text-transparent">
+                    ClassIntel AI — Class Intelligence
+                  </span>
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Sentiment analysis, topic trends, risk prediction and AI suggestions per teacher.
+                </p>
+              </div>
+              <Badge variant={aiOnline ? "default" : "destructive"} className="gap-1.5 self-start sm:self-auto">
+                <Zap className="h-3 w-3" />
+                AI Engine: {aiOnline ? "Online" : "Offline"}
+              </Badge>
+            </div>
+
+            {/* Teacher selector */}
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-medium text-muted-foreground">Select Teacher:</span>
+              {teachers.map((t) => {
+                const tid = (t as any).id ?? (t as any)._id;
+                return (
+                  <button
+                    key={tid}
+                    onClick={() => setSelectedIntelTeacherId(tid)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                      intelTeacherId === tid
+                        ? "bg-emerald-500 text-white border-emerald-500"
+                        : "border-border hover:border-emerald-400 hover:bg-emerald-500/5"
+                    }`}
+                  >
+                    {t.name}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Intelligence grid */}
+            <Tabs defaultValue="sentiment" className="space-y-4">
+              <TabsList className="grid grid-cols-4 w-full max-w-lg">
+                <TabsTrigger value="sentiment" className="text-xs flex items-center gap-1">
+                  <Activity className="h-3.5 w-3.5" />Sentiment
+                </TabsTrigger>
+                <TabsTrigger value="topics" className="text-xs flex items-center gap-1">
+                  <BarChart3 className="h-3.5 w-3.5" />Topics
+                </TabsTrigger>
+                <TabsTrigger value="risk" className="text-xs flex items-center gap-1">
+                  <Shield className="h-3.5 w-3.5" />Risk
+                </TabsTrigger>
+                <TabsTrigger value="suggestions" className="text-xs flex items-center gap-1">
+                  <Lightbulb className="h-3.5 w-3.5" />Suggestions
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="sentiment">
+                <SentimentPieChart data={intelSentiment} isLoading={intelSentimentLoading} />
+              </TabsContent>
+              <TabsContent value="topics">
+                <TopicFrequencyChart data={intelTopics} isLoading={intelTopicsLoading} />
+              </TabsContent>
+              <TabsContent value="risk">
+                {intelTeacherId ? <StudentRiskTable teacherId={intelTeacherId} /> : <p className="text-muted-foreground text-sm">Select a teacher to view risk data.</p>}
+              </TabsContent>
+              <TabsContent value="suggestions">
+                <AISuggestionsPanel data={intelSuggestions} isLoading={intelSuggestionsLoading} />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="analytics">

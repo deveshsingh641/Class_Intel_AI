@@ -44,7 +44,10 @@ export default function Analytics() {
     queryKey: [`/api/analytics/departments/comparison`],
   });
 
-  if (trendsLoading || monthlyLoading || comparisonLoading) {
+  // Only show loading skeleton for queries that are actually fetching
+  const isDataLoading = (id ? (trendsLoading || monthlyLoading) : false) || comparisonLoading;
+
+  if (isDataLoading) {
     return (
       <div className="container mx-auto px-4 py-8 space-y-6">
         <Skeleton className="h-10 w-64" />

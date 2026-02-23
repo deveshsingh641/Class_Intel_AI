@@ -172,9 +172,9 @@ export function FeedbackDetailModal({
               </div>
             </div>
             
-            <div className="flex items-center gap-3 p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 rounded-lg border border-purple-200 dark:border-purple-800 hover-lift animate-fadeScale" style={{ animationDelay: "0.1s" }}>
-              <div className="h-10 w-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-                <Award className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            <div className="flex items-center gap-3 p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950 dark:to-emerald-900 rounded-lg border border-emerald-200 dark:border-emerald-800 hover-lift animate-fadeScale" style={{ animationDelay: "0.1s" }}>
+              <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                <Award className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground font-medium">Rating Quality</p>
@@ -199,7 +199,7 @@ export function FeedbackDetailModal({
                 <p className="text-sm font-semibold">Full Comment</p>
               </div>
               <div className="p-6 bg-gradient-to-br from-muted/50 to-muted/30 rounded-lg border-2 border-muted-foreground/10 relative overflow-hidden">
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-purple-500 to-pink-500" />
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-emerald-500 to-pink-500" />
                 <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground relative z-10">
                   {feedback.comment}
                 </p>

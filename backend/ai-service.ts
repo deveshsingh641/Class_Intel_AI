@@ -241,7 +241,7 @@ function builtinChatbot(prompt: string): string {
 
   // Greeting
   if (/\b(hi|hello|hey|greetings)\b/.test(lower) && lower.length < 40) {
-    return "Hello! I'm EduBot, your assistant for the EduFeedback system. I can help you with giving feedback, viewing analytics, finding teachers, and navigating the platform. How can I help you today?";
+    return "Hello! I'm IntelBot, your assistant for the ClassIntel AI platform. I can help you with giving feedback, viewing analytics, finding teachers, and navigating the platform. How can I help you today?";
   }
 
   // Feedback-related
@@ -285,21 +285,30 @@ function builtinChatbot(prompt: string): string {
 
   // Thank you
   if (/thank|thanks/.test(lower)) {
-    return "You're welcome! Feel free to ask if you have any other questions about the EduFeedback platform.";
+    return "You're welcome! Feel free to ask if you have any other questions about ClassIntel AI.";
   }
 
   // Bye
   if (/bye|goodbye|see you/.test(lower)) {
-    return "Goodbye! Have a great day. Come back anytime you need help with the EduFeedback system!";
+    return "Goodbye! Have a great day. Come back anytime you need help with ClassIntel AI!";
   }
 
   // Default
-  return "I'm EduBot, here to help with the EduFeedback system! I can assist with giving feedback, viewing analytics, finding teachers, and navigating the platform. Could you rephrase your question or ask about one of these topics?";
+  return "I'm IntelBot, here to help with ClassIntel AI! I can assist with giving feedback, viewing analytics, finding teachers, and navigating the platform. Could you rephrase your question or ask about one of these topics?";
 }
 
 function builtinGenerate(prompt: string): string {
   // Detect what kind of request this is based on the prompt content
   const lower = prompt.toLowerCase();
+
+  // Detect academic doubt auto-answer requests (must be before chatbot fallback)
+  if (lower.includes("teaching assistant") && lower.includes("student's question") && lower.includes("helpful answer")) {
+    const questionMatch = prompt.match(/Student's question:\n(.+?)\n\nHelpful answer/s);
+    const subjectMatch = prompt.match(/subject \"(.+?)\"/i);
+    const question = questionMatch?.[1]?.trim() || "";
+    const subject = subjectMatch?.[1] || "the subject";
+    return builtinAcademicAnswer(question, subject);
+  }
   
   if (lower.includes("sentiment") && lower.includes("json")) {
     const inputMatch = prompt.match(/INPUT:\n(.+)/s);
@@ -329,6 +338,174 @@ function builtinGenerate(prompt: string): string {
   
   // Chatbot fallback
   return builtinChatbot(prompt);
+}
+
+// ─── Built-in academic doubt answering (no external API needed) ──────────────
+
+const ACADEMIC_KNOWLEDGE: Record<string, Record<string, string>> = {
+  // Mathematics / Statistics
+  regression: {
+    keywords: "regression",
+    answer:
+      "**Regression** is a statistical method used to model the relationship between a dependent variable (target) and one or more independent variables (predictors).\n\n" +
+      "**Types of Regression:**\n" +
+      "1. **Linear Regression** – Models a straight-line relationship: y = mx + b. Used when the relationship between variables is approximately linear.\n" +
+      "2. **Multiple Linear Regression** – Extends linear regression with multiple predictors: y = b₀ + b₁x₁ + b₂x₂ + ...\n" +
+      "3. **Polynomial Regression** – Fits a curved line using polynomial terms.\n" +
+      "4. **Logistic Regression** – Used for classification (binary outcomes), not continuous values.\n" +
+      "5. **Ridge / Lasso Regression** – Regularized versions that prevent overfitting.\n\n" +
+      "**Key Concepts:**\n" +
+      "• **R² (Coefficient of Determination)** – Measures how well the model fits the data (0 to 1).\n" +
+      "• **Residuals** – The difference between predicted and actual values.\n" +
+      "• **Least Squares Method** – Minimizes the sum of squared residuals to find the best-fit line.\n\n" +
+      "Regression is widely used in prediction, forecasting, and understanding variable relationships across fields like economics, engineering, and data science.",
+  },
+  derivative: {
+    keywords: "derivative|differentiation|calculus derivative",
+    answer:
+      "**Derivatives** measure the rate of change of a function with respect to a variable.\n\n" +
+      "If y = f(x), the derivative f'(x) = lim(h→0) [f(x+h) - f(x)] / h\n\n" +
+      "**Key Rules:**\n" +
+      "• Power Rule: d/dx(xⁿ) = nxⁿ⁻¹\n" +
+      "• Product Rule: d/dx(uv) = u'v + uv'\n" +
+      "• Chain Rule: d/dx(f(g(x))) = f'(g(x)) · g'(x)\n" +
+      "• Quotient Rule: d/dx(u/v) = (u'v - uv') / v²\n\n" +
+      "Derivatives are used to find slopes, optimize functions, and model rates of change in physics, economics, and engineering.",
+  },
+  integral: {
+    keywords: "integral|integration|antiderivative",
+    answer:
+      "**Integration** is the reverse of differentiation. It finds the area under a curve or the accumulation of quantities.\n\n" +
+      "**Types:**\n" +
+      "1. **Indefinite Integral**: ∫f(x)dx = F(x) + C (finds the antiderivative)\n" +
+      "2. **Definite Integral**: ∫ₐᵇ f(x)dx = F(b) - F(a) (computes area under curve from a to b)\n\n" +
+      "**Common Rules:**\n" +
+      "• ∫xⁿ dx = xⁿ⁺¹/(n+1) + C\n" +
+      "• ∫eˣ dx = eˣ + C\n" +
+      "• ∫(1/x) dx = ln|x| + C\n\n" +
+      "Integration is used in physics (work, displacement), probability, and engineering.",
+  },
+  matrix: {
+    keywords: "matrix|matrices|linear algebra",
+    answer:
+      "A **matrix** is a rectangular array of numbers arranged in rows and columns.\n\n" +
+      "**Operations:**\n" +
+      "• **Addition/Subtraction**: Element-wise, same dimensions required\n" +
+      "• **Multiplication**: (m×n) × (n×p) = (m×p), row-by-column dot product\n" +
+      "• **Transpose**: Flip rows and columns (Aᵀ)\n" +
+      "• **Determinant**: Scalar value for square matrices, det(A)\n" +
+      "• **Inverse**: A⁻¹ exists if det(A) ≠ 0; AA⁻¹ = I\n\n" +
+      "Matrices are fundamental in computer graphics, machine learning, systems of equations, and quantum mechanics.",
+  },
+  probability: {
+    keywords: "probability|bayes|conditional probability",
+    answer:
+      "**Probability** measures the likelihood of an event occurring, expressed as a number between 0 and 1.\n\n" +
+      "**Key Formulas:**\n" +
+      "• P(A) = Favorable outcomes / Total outcomes\n" +
+      "• P(A ∪ B) = P(A) + P(B) - P(A ∩ B) (Union)\n" +
+      "• P(A|B) = P(A ∩ B) / P(B) (Conditional)\n" +
+      "• Bayes' Theorem: P(A|B) = P(B|A)·P(A) / P(B)\n\n" +
+      "**Distributions:** Normal, Binomial, Poisson, Exponential\n\n" +
+      "Probability is the foundation of statistics, machine learning, risk analysis, and decision making.",
+  },
+  // Physics
+  newton: {
+    keywords: "newton|force|motion|law of motion",
+    answer:
+      "**Newton's Laws of Motion:**\n\n" +
+      "1. **First Law (Inertia):** An object stays at rest or in uniform motion unless acted upon by an external force.\n" +
+      "2. **Second Law:** F = ma. Force equals mass times acceleration.\n" +
+      "3. **Third Law:** For every action, there is an equal and opposite reaction.\n\n" +
+      "**Key Formulas:**\n" +
+      "• Weight: W = mg (g ≈ 9.8 m/s²)\n" +
+      "• Momentum: p = mv\n" +
+      "• Work: W = F·d·cos(θ)\n\n" +
+      "Newton's laws form the foundation of classical mechanics and are essential for understanding motion, forces, and energy.",
+  },
+  // Programming
+  oop: {
+    keywords: "oop|object oriented|encapsulation|polymorphism|inheritance|abstraction",
+    answer:
+      "**Object-Oriented Programming (OOP)** is a paradigm based on objects containing data and methods.\n\n" +
+      "**Four Pillars:**\n" +
+      "1. **Encapsulation** – Bundling data and methods together, hiding internal details (using private/public access).\n" +
+      "2. **Inheritance** – A class can inherit properties/methods from a parent class (code reuse).\n" +
+      "3. **Polymorphism** – Same method behaves differently based on the object (overriding/overloading).\n" +
+      "4. **Abstraction** – Hiding complex implementation, showing only essential features.\n\n" +
+      "**Key Concepts:** Classes, Objects, Constructors, Interfaces, Abstract Classes\n\n" +
+      "OOP is used in Java, Python, C++, C#, TypeScript, and most modern languages.",
+  },
+  database: {
+    keywords: "database|sql|normalization|dbms|rdbms",
+    answer:
+      "A **Database** is an organized collection of structured data stored electronically.\n\n" +
+      "**Types:**\n" +
+      "• **Relational (SQL):** Tables with rows/columns (MySQL, PostgreSQL)\n" +
+      "• **NoSQL:** Document-based (MongoDB), Key-Value (Redis), Graph (Neo4j)\n\n" +
+      "**Key SQL Concepts:**\n" +
+      "• SELECT, INSERT, UPDATE, DELETE\n" +
+      "• JOINs (INNER, LEFT, RIGHT, FULL)\n" +
+      "• Normalization (1NF, 2NF, 3NF, BCNF) – reduces redundancy\n" +
+      "• Indexing – speeds up queries\n" +
+      "• ACID properties – Atomicity, Consistency, Isolation, Durability\n\n" +
+      "Databases are fundamental to every application that stores and retrieves data.",
+  },
+  algorithm: {
+    keywords: "algorithm|sorting|searching|time complexity|big o",
+    answer:
+      "An **Algorithm** is a step-by-step procedure for solving a problem.\n\n" +
+      "**Common Sorting Algorithms:**\n" +
+      "• Bubble Sort: O(n²) – simple but slow\n" +
+      "• Merge Sort: O(n log n) – divide and conquer\n" +
+      "• Quick Sort: O(n log n) avg – fast, in-place\n\n" +
+      "**Searching:**\n" +
+      "• Linear Search: O(n)\n" +
+      "• Binary Search: O(log n) – requires sorted data\n\n" +
+      "**Big O Notation** measures worst-case time/space complexity:\n" +
+      "O(1) < O(log n) < O(n) < O(n log n) < O(n²) < O(2ⁿ)\n\n" +
+      "Understanding algorithms is crucial for writing efficient code and acing technical interviews.",
+  },
+  "machine learning": {
+    keywords: "machine learning|supervised|unsupervised|neural network|deep learning",
+    answer:
+      "**Machine Learning (ML)** is a branch of AI where systems learn from data without being explicitly programmed.\n\n" +
+      "**Types:**\n" +
+      "1. **Supervised Learning** – Trained on labeled data (Classification, Regression)\n" +
+      "2. **Unsupervised Learning** – Finds patterns in unlabeled data (Clustering, Dimensionality Reduction)\n" +
+      "3. **Reinforcement Learning** – Learns through rewards and penalties\n\n" +
+      "**Key Algorithms:** Linear Regression, Decision Trees, Random Forest, SVM, K-Means, Neural Networks\n\n" +
+      "**Deep Learning** uses multi-layer neural networks for complex tasks like image recognition, NLP, and generative AI.\n\n" +
+      "Popular frameworks: TensorFlow, PyTorch, scikit-learn.",
+  },
+};
+
+function builtinAcademicAnswer(question: string, subject: string): string {
+  const lower = question.toLowerCase();
+
+  // Try to match against known topics
+  for (const [, topicData] of Object.entries(ACADEMIC_KNOWLEDGE)) {
+    const keywordsRegex = new RegExp(topicData.keywords, "i");
+    if (keywordsRegex.test(lower)) {
+      return (
+        topicData.answer +
+        "\n\n---\n*This is an AI-generated preliminary answer. Your teacher may provide a more detailed or course-specific response.*"
+      );
+    }
+  }
+
+  // Generic helpful response when topic is not in the knowledge base
+  return (
+    `Great question about "${question.slice(0, 100)}"!\n\n` +
+    `This topic falls under **${subject}**. While I don't have a detailed built-in explanation for this specific topic, ` +
+    `here are some suggestions:\n\n` +
+    `1. **Review your course materials** – Check your lecture notes and textbook chapters related to this topic.\n` +
+    `2. **Key concepts to research:** Look up definitions, formulas, and real-world applications.\n` +
+    `3. **Practice problems** – Try solving related exercises to deepen your understanding.\n` +
+    `4. **Online resources** – Khan Academy, MIT OpenCourseWare, and YouTube have excellent explanations.\n\n` +
+    `Your teacher will provide a detailed, course-specific answer soon!\n\n` +
+    `---\n*This is an AI-generated preliminary answer. Your teacher may provide a more detailed response.*`
+  );
 }
 
 async function generateText(prompt: string): Promise<string> {
@@ -392,6 +569,43 @@ export interface FeedbackSummary {
   strengths: string[];
   improvements: string[];
   overallSentiment: string;
+}
+
+export interface FeedbackCategory {
+  categories: string[];
+  primaryCategory: string;
+  confidence: number;
+}
+
+export interface ActionItem {
+  action: string;
+  priority: "high" | "medium" | "low";
+  category: string;
+  basedOn: string;
+}
+
+export interface WeeklyDigest {
+  headline: string;
+  ratingTrend: string;
+  topStrengths: string[];
+  focusAreas: string[];
+  studentEngagement: string;
+  motivationalNote: string;
+  weekSummary: string;
+}
+
+export interface ToxicityResult {
+  isToxic: boolean;
+  confidence: number;
+  reason: string;
+  categories: string[];
+}
+
+export interface RatingPrediction {
+  predictedRating: number;
+  trend: "improving" | "declining" | "stable";
+  confidence: number;
+  reasoning: string;
 }
 
 export interface TeacherRecommendation {
@@ -705,7 +919,7 @@ export class AIService {
         .join("\n");
 
       const systemPrompt =
-        "You are EduBot, a helpful assistant for the EduFeedback system - a lecture feedback platform. " +
+        "You are IntelBot, a helpful assistant for the ClassIntel AI platform - an AI-powered classroom intelligence and performance analytics system. " +
         "You help students and teachers with: how to give feedback, how to view feedback, understanding ratings and analytics, navigation help, and teacher profile information. " +
         "Be concise, friendly, and helpful. If you don't know something, admit it.";
 
@@ -724,6 +938,303 @@ export class AIService {
       console.error("Chatbot error:", error);
       // All external providers failed; use built-in fallback
       return builtinChatbot(userMessage);
+    }
+  }
+
+  // ─── NEW 2026 AI FEATURES ──────────────────────────────────────────────
+
+  /**
+   * AI Smart Doubt Auto-Resolver: Provide an instant AI-generated answer
+   * for a student's doubt based on the subject context.
+   */
+  async autoAnswerDoubt(
+    question: string,
+    teacherSubject: string,
+    teacherName: string
+  ): Promise<string> {
+    if (!question || question.trim().length === 0) {
+      return "Please provide a clear question so I can help you.";
+    }
+
+    const instruction =
+      `You are a knowledgeable teaching assistant for the subject "${teacherSubject}" taught by ${teacherName}. ` +
+      "A student has posted a doubt. Provide a helpful, accurate, and concise preliminary answer. " +
+      "Make it clear this is an AI-generated suggestion and the teacher may provide a more detailed response. " +
+      "Keep your answer under 200 words. Be educational and encouraging.";
+
+    try {
+      const hfToken = getHfToken();
+      const openAiKey = getOpenAiKey();
+
+      // Try external AI providers first for high-quality answers
+      if (hfToken) {
+        try {
+          const prompt = instruction + "\n\nStudent's question:\n" + question + "\n\nHelpful answer:";
+          const answer = await hfGenerate(prompt);
+          const trimmed = (answer || "").trim();
+          if (trimmed && trimmed.length > 20) return trimmed;
+        } catch (error: any) {
+          console.warn("HF doubt-answer failed, trying next...", error?.message);
+        }
+      }
+
+      if (openAiKey) {
+        try {
+          const prompt = instruction + "\n\nStudent's question:\n" + question + "\n\nHelpful answer:";
+          const answer = await openAiGenerate(prompt);
+          const trimmed = (answer || "").trim();
+          if (trimmed && trimmed.length > 20) return trimmed;
+        } catch (error: any) {
+          console.warn("OpenAI doubt-answer failed, falling back to built-in...", error?.message);
+        }
+      }
+
+      // Use dedicated academic fallback instead of generic builtinGenerate
+      console.log("Using built-in academic answer for doubt");
+      return builtinAcademicAnswer(question, teacherSubject);
+    } catch (error) {
+      console.error("Auto-answer doubt error:", error);
+      return builtinAcademicAnswer(question, teacherSubject);
+    }
+  }
+
+  /**
+   * AI Feedback Auto-Tagging: Categorize feedback into predefined themes.
+   */
+  async categorizeFeedback(comment: string): Promise<FeedbackCategory> {
+    const defaultResult: FeedbackCategory = {
+      categories: ["general"],
+      primaryCategory: "general",
+      confidence: 0.5,
+    };
+
+    if (!comment || comment.trim().length === 0) {
+      return defaultResult;
+    }
+
+    try {
+      const instruction =
+        "You are an education feedback categorization expert. Categorize the following student feedback into one or more of these categories: " +
+        '"teaching-style", "content-clarity", "engagement", "pace", "assessment", "communication", "resources", "support", "general". ' +
+        "Return JSON with: categories (array of matching category strings), primaryCategory (the single most relevant category), confidence (0-1 number).";
+
+      const result = await generateJson<{
+        categories?: string[];
+        primaryCategory?: string;
+        confidence?: number;
+      }>(instruction, comment);
+
+      return {
+        categories: Array.isArray(result.categories) ? result.categories : ["general"],
+        primaryCategory: typeof result.primaryCategory === "string" ? result.primaryCategory : "general",
+        confidence: typeof result.confidence === "number" ? Math.min(1, Math.max(0, result.confidence)) : 0.5,
+      };
+    } catch (error) {
+      console.error("Categorize feedback error:", error);
+      return defaultResult;
+    }
+  }
+
+  /**
+   * AI Action Items Generator: Convert feedback into actionable improvement steps for teachers.
+   */
+  async generateActionItems(
+    feedbackList: Array<{ rating: number; comment: string | null }>,
+    teacherName: string
+  ): Promise<ActionItem[]> {
+    if (feedbackList.length === 0) {
+      return [];
+    }
+
+    const comments = feedbackList
+      .filter((f) => f.comment && f.comment.trim().length > 0)
+      .map((f) => `[Rating: ${f.rating}/5] ${f.comment}`)
+      .join("\n");
+
+    if (!comments) {
+      return [];
+    }
+
+    try {
+      const instruction =
+        `You are an educational improvement consultant analyzing feedback for teacher ${teacherName}. ` +
+        "Based on the student feedback below, generate 3-6 specific, actionable improvement items. " +
+        'Each item must have: action (specific step to take), priority ("high", "medium", or "low"), ' +
+        "category (e.g. teaching-style, engagement, content, communication, assessment), " +
+        'and basedOn (brief quote or reference to the feedback it\'s based on). Return JSON with an "items" array.';
+
+      const result = await generateJson<{
+        items?: ActionItem[];
+      }>(instruction, comments);
+
+      if (!Array.isArray(result.items)) {
+        return [];
+      }
+
+      return result.items.slice(0, 6).map((item) => ({
+        action: typeof item.action === "string" ? item.action : "Review feedback",
+        priority: ["high", "medium", "low"].includes(item.priority) ? item.priority : "medium",
+        category: typeof item.category === "string" ? item.category : "general",
+        basedOn: typeof item.basedOn === "string" ? item.basedOn : "",
+      }));
+    } catch (error) {
+      console.error("Generate action items error:", error);
+      return [];
+    }
+  }
+
+  /**
+   * AI Weekly Digest: Generate a weekly performance summary for a teacher.
+   */
+  async generateWeeklyDigest(
+    teacherName: string,
+    feedbackList: Array<{ rating: number; comment: string | null; createdAt: Date | null }>,
+    stats: { totalFeedback: number; averageRating: number; previousAvgRating: number }
+  ): Promise<WeeklyDigest> {
+    const defaultDigest: WeeklyDigest = {
+      headline: "Weekly Performance Summary",
+      ratingTrend: "stable",
+      topStrengths: [],
+      focusAreas: [],
+      studentEngagement: "No data available",
+      motivationalNote: "Keep up the great work!",
+      weekSummary: "Not enough data to generate a summary.",
+    };
+
+    if (feedbackList.length === 0) {
+      return defaultDigest;
+    }
+
+    const recentComments = feedbackList
+      .filter((f) => f.comment && f.comment.trim().length > 0)
+      .slice(0, 20)
+      .map((f) => `[Rating: ${f.rating}/5] ${f.comment}`)
+      .join("\n");
+
+    try {
+      const instruction =
+        `You are an educational performance analyst generating a weekly digest for teacher ${teacherName}. ` +
+        `Stats: ${stats.totalFeedback} total feedback, ${stats.averageRating.toFixed(1)} avg rating (previous: ${stats.previousAvgRating.toFixed(1)}). ` +
+        "Generate an encouraging and insightful weekly digest. Return JSON with: " +
+        'headline (catchy one-liner), ratingTrend ("improving"/"declining"/"stable"), ' +
+        "topStrengths (array of 2-3 strengths), focusAreas (array of 1-2 areas to improve), " +
+        "studentEngagement (brief description of engagement level), " +
+        "motivationalNote (personalized encouragement), weekSummary (2-3 sentence overview).";
+
+      const result = await generateJson<Partial<WeeklyDigest>>(instruction, recentComments || "No comments this week.");
+
+      return {
+        headline: typeof result.headline === "string" ? result.headline : defaultDigest.headline,
+        ratingTrend: typeof result.ratingTrend === "string" ? result.ratingTrend : defaultDigest.ratingTrend,
+        topStrengths: Array.isArray(result.topStrengths) ? result.topStrengths : defaultDigest.topStrengths,
+        focusAreas: Array.isArray(result.focusAreas) ? result.focusAreas : defaultDigest.focusAreas,
+        studentEngagement: typeof result.studentEngagement === "string" ? result.studentEngagement : defaultDigest.studentEngagement,
+        motivationalNote: typeof result.motivationalNote === "string" ? result.motivationalNote : defaultDigest.motivationalNote,
+        weekSummary: typeof result.weekSummary === "string" ? result.weekSummary : defaultDigest.weekSummary,
+      };
+    } catch (error) {
+      console.error("Weekly digest error:", error);
+      return defaultDigest;
+    }
+  }
+
+  /**
+   * AI Toxic Content Detection: Check if text contains toxic or abusive content.
+   */
+  async detectToxicContent(text: string): Promise<ToxicityResult> {
+    const safeResult: ToxicityResult = {
+      isToxic: false,
+      confidence: 1,
+      reason: "",
+      categories: [],
+    };
+
+    if (!text || text.trim().length === 0) {
+      return safeResult;
+    }
+
+    try {
+      const instruction =
+        "You are a content moderation expert for an educational platform. " +
+        "Analyze the following text for toxicity, harassment, hate speech, profanity, personal attacks, or inappropriate content. " +
+        "Be strict about keeping educational spaces safe but don't flag constructive criticism. " +
+        'Return JSON with: isToxic (boolean), confidence (0-1), reason (brief explanation if toxic, empty string if safe), ' +
+        'categories (array of detected issues from: "profanity", "harassment", "hate-speech", "personal-attack", "inappropriate", "threatening").';
+
+      const result = await generateJson<Partial<ToxicityResult>>(instruction, text);
+
+      return {
+        isToxic: typeof result.isToxic === "boolean" ? result.isToxic : false,
+        confidence: typeof result.confidence === "number" ? Math.min(1, Math.max(0, result.confidence)) : 0.5,
+        reason: typeof result.reason === "string" ? result.reason : "",
+        categories: Array.isArray(result.categories) ? result.categories : [],
+      };
+    } catch (error) {
+      console.error("Toxic content detection error:", error);
+      // On error, fall back to basic keyword check
+      return this.builtinToxicCheck(text);
+    }
+  }
+
+  private builtinToxicCheck(text: string): ToxicityResult {
+    const lower = text.toLowerCase();
+    const toxicWords = ["idiot", "stupid", "dumb", "bastard", "fuck", "shit", "hate you", "kill", "die"];
+    const found = toxicWords.filter((w) => lower.includes(w));
+
+    return {
+      isToxic: found.length > 0,
+      confidence: found.length > 0 ? Math.min(1, found.length * 0.3) : 1,
+      reason: found.length > 0 ? `Contains potentially inappropriate language` : "",
+      categories: found.length > 0 ? ["profanity"] : [],
+    };
+  }
+
+  /**
+   * AI Predictive Rating Trends: Predict future rating trends based on historical data.
+   */
+  async predictRatingTrend(
+    monthlyData: Array<{ month: string; avgRating: number; count: number }>,
+    teacherName: string
+  ): Promise<RatingPrediction> {
+    const defaultPrediction: RatingPrediction = {
+      predictedRating: 0,
+      trend: "stable",
+      confidence: 0.5,
+      reasoning: "Not enough data to predict trends.",
+    };
+
+    if (monthlyData.length < 2) {
+      return defaultPrediction;
+    }
+
+    try {
+      const dataStr = monthlyData
+        .map((m) => `${m.month}: avg=${m.avgRating.toFixed(2)}, count=${m.count}`)
+        .join("\n");
+
+      const instruction =
+        `You are an educational data analyst predicting rating trends for teacher ${teacherName}. ` +
+        "Based on the monthly rating history below, predict the expected rating for the next month. " +
+        'Return JSON with: predictedRating (number 1-5), trend ("improving", "declining", or "stable"), ' +
+        "confidence (0-1 number), reasoning (brief explanation of the prediction).";
+
+      const result = await generateJson<Partial<RatingPrediction>>(instruction, dataStr);
+
+      return {
+        predictedRating: typeof result.predictedRating === "number"
+          ? Math.min(5, Math.max(1, result.predictedRating))
+          : defaultPrediction.predictedRating,
+        trend: ["improving", "declining", "stable"].includes(result.trend || "")
+          ? (result.trend as RatingPrediction["trend"])
+          : "stable",
+        confidence: typeof result.confidence === "number"
+          ? Math.min(1, Math.max(0, result.confidence))
+          : 0.5,
+        reasoning: typeof result.reasoning === "string" ? result.reasoning : defaultPrediction.reasoning,
+      };
+    } catch (error) {
+      console.error("Predict rating trend error:", error);
+      return defaultPrediction;
     }
   }
 }

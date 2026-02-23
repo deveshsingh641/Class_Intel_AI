@@ -38,7 +38,7 @@ export function SkillBadges({
       name: "Highly Rated",
       description: "Achieved 4.0+ average rating",
       icon: <Award className="h-5 w-5" />,
-      color: "from-purple-400 to-purple-600",
+      color: "from-emerald-400 to-emerald-500",
       unlocked: averageRating >= 4.0,
     },
     {

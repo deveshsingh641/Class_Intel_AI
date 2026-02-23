@@ -462,7 +462,7 @@ export default function TeacherProfile() {
                   </div>
                   <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden relative">
                     <div
-                      className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 h-full progress-animate transition-all duration-700 ease-out"
+                      className="bg-gradient-to-r from-blue-500 via-emerald-500 to-pink-500 h-full progress-animate transition-all duration-700 ease-out"
                       style={{
                         width: `${percentage}%`,
                       }}
@@ -538,15 +538,15 @@ export default function TeacherProfile() {
                 <p className="text-xs text-green-600 dark:text-green-400 mt-1">characters per comment</p>
               </div>
               
-              <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 rounded-lg border border-purple-200 dark:border-purple-800 animate-fadeScale" style={{ animationDelay: "0.2s" }}>
+              <div className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950 dark:to-emerald-900 rounded-lg border border-emerald-200 dark:border-emerald-800 animate-fadeScale" style={{ animationDelay: "0.2s" }}>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-purple-700 dark:text-purple-300">Engagement Score</span>
-                  <Activity className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Engagement Score</span>
+                  <Activity className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
                 </div>
-                <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                <p className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">
                   {Math.round((averageRating * 20) + (positiveFeedbackRate * 0.3) + (responseRate * 0.2))}
                 </p>
-                <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">out of 100</p>
+                <p className="text-xs text-emerald-500 dark:text-emerald-400 mt-1">out of 100</p>
               </div>
             </div>
           </CardContent>

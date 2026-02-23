@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,17 +12,37 @@ interface Message {
   content: string;
 }
 
+const MAX_HISTORY = 50; // Limit history to prevent unbounded growth
+
 export function AIChatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const { toast } = useToast();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<Message[]>([]); // Ref to track latest messages for mutation
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isOpen]);
 
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
+      // Use ref to get the latest messages (includes the user message just added)
+      const currentMessages = messagesRef.current;
+      // Limit history sent to server to prevent payload bloat
+      const historyToSend = currentMessages.slice(-MAX_HISTORY);
       const res = await apiRequest("POST", "/api/ai/chat", {
         message,
-        history: messages.map((m) => ({
+        history: historyToSend.map((m) => ({
           role: m.role,
           content: m.content,
         })),
@@ -44,13 +64,20 @@ export function AIChatbot() {
     },
   });
 
-  const handleSend = () => {
+  const handleSend = useCallback(() => {
     if (!input.trim()) return;
+    const userMessage = input.trim();
 
-    setMessages((prev) => [...prev, { role: "user", content: input }]);
-    chatMutation.mutate(input);
+    // Add user message to state AND update ref immediately to avoid race condition
+    const newMessage: Message = { role: "user", content: userMessage };
+    setMessages((prev) => {
+      const updated = [...prev, newMessage];
+      messagesRef.current = updated; // Sync ref immediately before mutation fires
+      return updated;
+    });
+    chatMutation.mutate(userMessage);
     setInput("");
-  };
+  }, [input, chatMutation]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -73,12 +100,12 @@ export function AIChatbot() {
 
   return (
     <Card className="fixed bottom-6 right-6 w-[400px] h-[600px] shadow-2xl flex flex-col z-50 border-2">
-      <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-t-lg">
+      <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-500 to-emerald-500 text-white rounded-t-lg">
         <div className="flex items-center gap-2">
           <Sparkles className="h-5 w-5" />
           <div>
-            <h3 className="font-semibold">EduBot AI</h3>
-            <p className="text-xs opacity-90">Your AI Assistant</p>
+            <h3 className="font-semibold">IntelBot AI</h3>
+            <p className="text-xs opacity-90">ClassIntel Assistant</p>
           </div>
         </div>
         <Button 
@@ -91,15 +118,18 @@ export function AIChatbot() {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-950">
+      <div 
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-950"
+      >
         {messages.length === 0 && (
           <div className="text-center text-muted-foreground text-sm space-y-3 mt-8">
-            <div className="w-16 h-16 mx-auto bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+            <div className="w-16 h-16 mx-auto bg-gradient-to-br from-blue-500 to-emerald-500 rounded-full flex items-center justify-center">
               <Sparkles className="h-8 w-8 text-white" />
             </div>
-            <p className="font-semibold">Hi! I'm EduBot 👋</p>
+            <p className="font-semibold">Hi! I'm IntelBot 👋</p>
             <p className="text-xs px-4">
-              Ask me anything about the feedback system, how to give feedback, view analytics, or navigate the platform!
+              Ask me anything about ClassIntel AI — feedback, analytics, teacher profiles, or platform navigation!
             </p>
           </div>
         )}
@@ -137,7 +167,7 @@ export function AIChatbot() {
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyPress}
             placeholder="Type your message..."
             className="flex-1"
             disabled={chatMutation.isPending}
@@ -146,7 +176,7 @@ export function AIChatbot() {
             onClick={handleSend} 
             size="icon" 
             disabled={chatMutation.isPending || !input.trim()}
-            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+            className="bg-gradient-to-r from-blue-500 to-emerald-500 hover:from-blue-600 hover:to-emerald-700"
           >
             <Send className="h-4 w-4" />
           </Button>

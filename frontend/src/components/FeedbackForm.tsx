@@ -13,8 +13,10 @@ import { Badge } from "@/components/ui/badge";
 import { StarRating } from "./StarRating";
 import { FeedbackTemplates } from "./FeedbackTemplates";
 import { Confetti } from "./Confetti";
-import { BookOpen, Mic, MicOff } from "lucide-react";
+import { BookOpen, Mic, MicOff, ShieldAlert } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useToxicDetection } from "@/hooks/useToxicDetection";
+import { VoiceFeedback } from "./VoiceFeedback";
 
 export interface TeacherData {
   id: string;
@@ -43,6 +45,7 @@ export function FeedbackForm({ teacher, open, onOpenChange, onSubmit, isSubmitti
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [doubt, setDoubt] = useState("");
   const [isImproving, setIsImproving] = useState(false);
+  const { isChecking: isToxicChecking, result: toxicResult, checkToxicity, clearResult: clearToxicResult } = useToxicDetection();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<BlobPart[]>([]);
 
@@ -168,8 +171,18 @@ export function FeedbackForm({ teacher, open, onOpenChange, onSubmit, isSubmitti
     setIsRecording(false);
   }, []);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!teacher || rating === 0) return;
+
+    // Check for toxic content before submitting
+    if (comment.trim()) {
+      const toxicCheck = await checkToxicity(comment);
+      if (toxicCheck && toxicCheck.isToxic) {
+        // Don't block, just warn - the user can still proceed
+        return;
+      }
+    }
+
     onSubmit(teacher.id, rating, comment, isAnonymous, doubt.trim() || undefined);
   };
 
@@ -299,6 +312,12 @@ export function FeedbackForm({ teacher, open, onOpenChange, onSubmit, isSubmitti
                           )}
                         </Button>
                       )}
+                      {!transcriptionEnabled && (
+                        <VoiceFeedback
+                          onTranscript={(text) => setComment((prev) => (prev + " " + text).trim().slice(0, 500))}
+                          disabled={isSubmitting}
+                        />
+                      )}
                       <FeedbackTemplates onSelectTemplate={handleTemplateSelect} />
                       <span className="text-xs text-muted-foreground">
                         {comment.length}/500
@@ -358,17 +377,45 @@ export function FeedbackForm({ teacher, open, onOpenChange, onSubmit, isSubmitti
             </div>
           </div>
 
-          <div className="flex gap-2 justify-end px-6 py-4 border-t flex-shrink-0">
-            <Button variant="outline" onClick={handleClose} data-testid="button-cancel-feedback">
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={rating === 0 || isSubmitting}
-              data-testid="button-submit-feedback"
-            >
-              {isSubmitting ? "Submitting..." : "Submit Feedback"}
-            </Button>
+          <div className="flex flex-col gap-2 px-6 py-4 border-t flex-shrink-0">
+            {toxicResult && toxicResult.isToxic && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800">
+                <ShieldAlert className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-red-700 dark:text-red-400">
+                    AI Content Warning
+                  </p>
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
+                    {toxicResult.reason || "Your feedback may contain inappropriate language."}{" "}
+                    Please revise for a constructive tone, or submit anyway.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 text-xs h-7 border-red-300 text-red-700 hover:bg-red-100 dark:border-red-700 dark:text-red-400"
+                    onClick={() => {
+                      if (!teacher) return;
+                      clearToxicResult();
+                      onSubmit(teacher.id, rating, comment, isAnonymous, doubt.trim() || undefined);
+                    }}
+                  >
+                    Submit Anyway
+                  </Button>
+                </div>
+              </div>
+            )}
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={handleClose} data-testid="button-cancel-feedback">
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={rating === 0 || isSubmitting || isToxicChecking}
+                data-testid="button-submit-feedback"
+              >
+                {isToxicChecking ? "Checking..." : isSubmitting ? "Submitting..." : "Submit Feedback"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

@@ -198,7 +198,7 @@ app.use((req, res, next) => {
     log(`serving on port ${desiredPort}`);
     console.log("");
     console.log("╔══════════════════════════════════════╗");
-    console.log("║   🎓 EduFeedback is running!        ║");
+    console.log("║   🧠 ClassIntel AI is running!       ║");
     console.log(`║   Open: ${url.padEnd(25)} ║`);
     console.log("╚══════════════════════════════════════╝");
     console.log("");

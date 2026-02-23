@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { GraduationCap, Loader2 } from "lucide-react";
+import { Brain, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -62,13 +62,13 @@ export default function Login() {
       <Card className="w-full max-w-md glass-card">
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center">
-            <div className="rounded-full bg-primary/10 p-3">
-              <GraduationCap className="h-8 w-8 text-primary" />
+            <div className="rounded-full bg-gradient-to-br from-emerald-500 to-green-600 p-3 shadow-lg shadow-emerald-500/30 dark:shadow-emerald-500/40">
+              <Brain className="h-8 w-8 text-white" />
             </div>
           </div>
           <CardTitle className="text-2xl" data-testid="text-login-title">Welcome Back</CardTitle>
           <CardDescription>
-            Sign in to access your dashboard
+            Sign in to <span className="font-medium bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent">ClassIntel AI</span>
           </CardDescription>
         </CardHeader>
         <CardContent>

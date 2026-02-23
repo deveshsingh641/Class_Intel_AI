@@ -4,6 +4,10 @@ import { FeedbackItem } from "@/components/FeedbackItem";
 import { RatingChart } from "@/components/RatingChart";
 import { TeacherInsightsPanel } from "@/components/TeacherInsightsPanel";
 import { SearchFilter } from "@/components/SearchFilter";
+import { AIActionItems } from "@/components/AIActionItems";
+import { AIWeeklyDigest } from "@/components/AIWeeklyDigest";
+import { AIPredictiveTrend } from "@/components/AIPredictiveTrend";
+import { AISmartDoubtAnswer } from "@/components/AISmartDoubtAnswer";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -41,6 +45,13 @@ export default function TeacherDashboard() {
   const [page, setPage] = useState(1);
   const limit = 10;
 
+  // Resolve the actual teacher profile (User ID ≠ Teacher ID)
+  const { data: teacherProfile } = useQuery<any>({
+    queryKey: ["/api/teachers/me"],
+    retry: false,
+  });
+  const teacherId = teacherProfile?.id ?? teacherProfile?._id;
+
   const { data: feedbackData, isLoading, error } = useQuery<{
     items: FeedbackWithTeacher[];
     total: number;
@@ -75,8 +86,8 @@ export default function TeacherDashboard() {
     recentAverage: number | null;
     previousAverage: number | null;
   }>({
-    queryKey: user?.id ? [`/api/analytics/teacher/${user.id}/improvement`] : [],
-    enabled: !!user?.id,
+    queryKey: teacherId ? [`/api/analytics/teacher/${teacherId}/improvement`] : [],
+    enabled: !!teacherId,
   });
 
   const answerMutation = useMutation({
@@ -284,6 +295,7 @@ export default function TeacherDashboard() {
           <TabsList>
             <TabsTrigger value="feedback" data-testid="tab-feedback">Feedback</TabsTrigger>
             <TabsTrigger value="doubts" data-testid="tab-doubts">Doubt Wall</TabsTrigger>
+            <TabsTrigger value="ai-insights" data-testid="tab-ai-insights">AI Insights</TabsTrigger>
             <TabsTrigger value="analytics" data-testid="tab-analytics">Analytics</TabsTrigger>
           </TabsList>
 
@@ -471,12 +483,23 @@ export default function TeacherDashboard() {
                 </Card>
               </div>
 
-              <TeacherInsightsPanel
-                totalFeedback={pageFeedbackCount}
-                averageRating={averageRating}
-                uniqueStudents={uniqueStudents}
-                ratingDistribution={ratingDistribution}
-              />
+              <div className="space-y-6">
+                <TeacherInsightsPanel
+                  totalFeedback={pageFeedbackCount}
+                  averageRating={averageRating}
+                  uniqueStudents={uniqueStudents}
+                  ratingDistribution={ratingDistribution}
+                />
+                {teacherId && <AIPredictiveTrend teacherId={teacherId} />}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* NEW: AI Insights Tab */}
+          <TabsContent value="ai-insights" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {teacherId && <AIWeeklyDigest teacherId={teacherId} />}
+              {teacherId && <AIActionItems teacherId={teacherId} />}
             </div>
           </TabsContent>
         </Tabs>

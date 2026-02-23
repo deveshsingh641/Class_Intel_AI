@@ -48,32 +48,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      try {
-        const response = await fetch(withApiBase("/api/auth/me"), {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-        });
+      // Retry logic: when the dev server restarts after code changes, the
+      // backend may not be ready yet.  We retry a few times before giving up
+      // so a temporary network blip doesn't wipe credentials.
+      const MAX_RETRIES = 3;
+      const RETRY_DELAY = 1500; // ms
 
-        if (!response.ok) {
-          console.error("Auth failed with status:", response.status);
-          throw new Error("Session expired");
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          const response = await fetch(withApiBase("/api/auth/me"), {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+          });
+
+          if (response.ok) {
+            // Token is valid — refresh user data
+            const freshUser = await response.json();
+            localStorage.setItem("user", JSON.stringify(freshUser));
+            setUser(freshUser);
+            setIsLoading(false);
+            return;
+          }
+
+          // 401 / 403 means the token is genuinely rejected (expired, secret
+          // changed, revoked).  Only in this case do we clear credentials.
+          if (response.status === 401 || response.status === 403) {
+            console.warn("Auth token rejected (status", response.status, ") — clearing session");
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            setUser(null);
+            setIsLoading(false);
+            return;
+          }
+
+          // Any other server error (500, 502, etc.) — the token might still be
+          // fine but the server is having issues.  Fall through to retry / use
+          // cached user.
+          console.warn(`Auth check returned ${response.status}, attempt ${attempt + 1}/${MAX_RETRIES + 1}`);
+        } catch (networkError) {
+          // Network error (server not reachable, e.g. still restarting after
+          // code changes).  Do NOT clear credentials — retry instead.
+          console.warn(`Auth check network error (attempt ${attempt + 1}/${MAX_RETRIES + 1}):`, networkError);
         }
 
-        const freshUser = await response.json();
-        localStorage.setItem("user", JSON.stringify(freshUser));
-        setUser(freshUser);
-      } catch (error) {
-        console.error("Auth initialization error:", error);
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        setUser(null);
-      } finally {
-        setIsLoading(false);
+        // Wait before retrying (skip wait on last attempt)
+        if (attempt < MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, RETRY_DELAY));
+        }
       }
+
+      // All retries exhausted but no definitive 401/403 received.
+      // Keep the stored user so the session survives server restarts.
+      console.warn("Server unreachable after retries — using cached session");
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch {
+        setUser(null);
+      }
+      setIsLoading(false);
     };
 
     initAuth();

@@ -16,6 +16,9 @@ import {
   type Favorite,
   type InsertFavorite,
   type StudyGroup,
+  type ActionItem,
+  type WeeklyDigestDoc,
+  type FeedbackCategoryDoc,
   StudyGroupModel,
   StudentAchievementClaimModel,
   UserModel,
@@ -30,6 +33,9 @@ import {
   ChatHistoryModel,
   FavoriteModel,
   DoubtModel,
+  ActionItemModel,
+  WeeklyDigestModel,
+  FeedbackCategoryModel,
 } from "@shared/schema";
 import bcrypt from "bcryptjs";
 
@@ -40,6 +46,8 @@ export interface IStorage {
   
   getTeachers(): Promise<Teacher[]>;
   getTeacher(id: string): Promise<Teacher | undefined>;
+  getTeacherByName(name: string): Promise<Teacher | undefined>;
+  getTeacherByLooseName(name: string): Promise<Teacher | undefined>;
   createTeacher(teacher: InsertTeacher): Promise<Teacher>;
   updateTeacher(id: string, updates: UpdateTeacher): Promise<Teacher>;
   deleteTeacher(id: string): Promise<void>;
@@ -170,6 +178,25 @@ export interface IStorage {
 
   markFeedbackRead(feedbackId: string): Promise<Feedback | undefined>;
   markFeedbackResolved(feedbackId: string, studentId: string): Promise<Feedback | undefined>;
+
+  saveActionItems(teacherId: string, items: Array<{ action: string; priority: string; category: string; basedOn: string }>): Promise<ActionItem[]>;
+  getActionItems(teacherId: string): Promise<ActionItem[]>;
+  updateActionItemStatus(itemId: string, status: string): Promise<ActionItem | undefined>;
+
+  saveWeeklyDigest(teacherId: string, digest: {
+    headline: string;
+    ratingTrend: string;
+    topStrengths: string[];
+    focusAreas: string[];
+    studentEngagement: string;
+    motivationalNote: string;
+    weekSummary: string;
+  }): Promise<WeeklyDigestDoc>;
+  getLatestWeeklyDigest(teacherId: string): Promise<WeeklyDigestDoc | undefined>;
+  getWeeklyDigests(teacherId: string, limit?: number): Promise<WeeklyDigestDoc[]>;
+
+  saveFeedbackCategory(feedbackId: string, data: { categories: string[]; primaryCategory: string; confidence: number }): Promise<void>;
+  getFeedbackCategory(feedbackId: string): Promise<FeedbackCategoryDoc | undefined>;
 }
 
 function withId<T extends { _id?: any; id?: any }>(doc: any): T {
@@ -1060,6 +1087,106 @@ export class DatabaseStorage implements IStorage {
   async getChatHistory(userId: string, limit: number = 10): Promise<ChatHistory[]> {
     const rows = await ChatHistoryModel.find({ userId }).sort({ createdAt: -1 }).limit(limit).lean();
     return rows.map((r) => withId<ChatHistory>(r));
+  }
+
+  // ─── NEW 2026 AI STORAGE METHODS ──────────────────────────────────────
+
+  async saveActionItems(teacherId: string, items: Array<{ action: string; priority: string; category: string; basedOn: string }>): Promise<ActionItem[]> {
+    // Clear old pending items for this teacher
+    await ActionItemModel.deleteMany({ teacherId, status: "pending" });
+    const docs = await ActionItemModel.create(
+      items.map((item) => ({
+        teacherId,
+        action: item.action,
+        priority: item.priority,
+        category: item.category,
+        basedOn: item.basedOn,
+        status: "pending",
+      }))
+    );
+    return (Array.isArray(docs) ? docs : [docs]).map((d) => withId<ActionItem>(d));
+  }
+
+  async getActionItems(teacherId: string): Promise<ActionItem[]> {
+    const docs = await ActionItemModel.find({ teacherId })
+      .sort({ generatedAt: -1 })
+      .limit(20)
+      .lean();
+    return docs.map((d) => withId<ActionItem>(d));
+  }
+
+  async updateActionItemStatus(itemId: string, status: string): Promise<ActionItem | undefined> {
+    const doc = await ActionItemModel.findByIdAndUpdate(
+      itemId,
+      { status },
+      { new: true }
+    ).lean();
+    return doc ? withId<ActionItem>(doc) : undefined;
+  }
+
+  async saveWeeklyDigest(teacherId: string, digest: {
+    headline: string;
+    ratingTrend: string;
+    topStrengths: string[];
+    focusAreas: string[];
+    studentEngagement: string;
+    motivationalNote: string;
+    weekSummary: string;
+  }): Promise<WeeklyDigestDoc> {
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+
+    const doc = await WeeklyDigestModel.create({
+      teacherId,
+      headline: digest.headline,
+      ratingTrend: digest.ratingTrend,
+      topStrengths: JSON.stringify(digest.topStrengths),
+      focusAreas: JSON.stringify(digest.focusAreas),
+      studentEngagement: digest.studentEngagement,
+      motivationalNote: digest.motivationalNote,
+      weekSummary: digest.weekSummary,
+      weekStartDate: weekStart,
+    });
+    return withId<WeeklyDigestDoc>(doc);
+  }
+
+  async getLatestWeeklyDigest(teacherId: string): Promise<WeeklyDigestDoc | undefined> {
+    const doc = await WeeklyDigestModel.findOne({ teacherId })
+      .sort({ generatedAt: -1 })
+      .lean();
+    return doc ? withId<WeeklyDigestDoc>(doc) : undefined;
+  }
+
+  async getWeeklyDigests(teacherId: string, limit: number = 4): Promise<WeeklyDigestDoc[]> {
+    const docs = await WeeklyDigestModel.find({ teacherId })
+      .sort({ generatedAt: -1 })
+      .limit(limit)
+      .lean();
+    return docs.map((d) => withId<WeeklyDigestDoc>(d));
+  }
+
+  async saveFeedbackCategory(feedbackId: string, data: {
+    categories: string[];
+    primaryCategory: string;
+    confidence: number;
+  }): Promise<void> {
+    await FeedbackCategoryModel.findOneAndUpdate(
+      { feedbackId },
+      {
+        feedbackId,
+        categories: JSON.stringify(data.categories),
+        primaryCategory: data.primaryCategory,
+        confidence: data.confidence,
+      },
+      { upsert: true }
+    );
+  }
+
+  async getFeedbackCategory(feedbackId: string): Promise<FeedbackCategoryDoc | undefined> {
+    const doc = await FeedbackCategoryModel.findOne({ feedbackId }).lean();
+    return doc ? withId<FeedbackCategoryDoc>(doc) : undefined;
   }
 
   private async recalculateTeacherStats(teacherId: string) {

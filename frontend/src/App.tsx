@@ -6,15 +6,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { Navbar } from "@/components/Navbar";
-import { AIChatbot } from "@/components/AIChatbot";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import Login from "@/pages/Login";
 import Signup from "@/pages/Signup";
-import StudentDashboard from "@/pages/StudentDashboard";
+import StudentHub from "@/pages/StudentHub";
 import StudentTeachers from "@/pages/StudentTeachers";
 import MyFeedback from "@/pages/MyFeedback";
-import Favorites from "@/pages/Favorites";
 import TeacherDashboard from "@/pages/TeacherDashboard";
 import TeacherProfile from "@/pages/TeacherProfile";
 import EditTeacherProfile from "@/pages/EditTeacherProfile";
@@ -22,6 +21,14 @@ import Analytics from "@/pages/Analytics";
 import AdminPanel from "@/pages/AdminPanel";
 import AdminTeachers from "@/pages/AdminTeachers";
 import QrFeedbackPage from "@/pages/QrFeedbackPage";
+import IntelligenceDashboard from "@/pages/IntelligenceDashboard";
+import AttendancePage from "@/pages/AttendancePage";
+import LectureSummarizer from "@/pages/LectureSummarizer";
+import QuizPage from "@/pages/QuizPage";
+import PerformanceDashboard from "@/pages/PerformanceDashboard";
+import RAGChatbot from "@/pages/RAGChatbot";
+import LMSIntegration from "@/pages/LMSIntegration";
+import SimplifiiImport from "@/pages/SimplifiiImport";
 
 function ProtectedRoute({ 
   children, 
@@ -78,9 +85,10 @@ function Router() {
         {isAuthenticated ? <Redirect to="/" /> : <Signup />}
       </Route>
       
+      {/* ── Student Routes ──────────────────────────────── */}
       <Route path="/student">
         <ProtectedRoute allowedRoles={["student"]}>
-          <StudentDashboard />
+          <StudentHub />
         </ProtectedRoute>
       </Route>
       
@@ -96,22 +104,23 @@ function Router() {
         </ProtectedRoute>
       </Route>
 
-      <Route path="/favorites">
-        <ProtectedRoute allowedRoles={["student"]}>
-          <Favorites />
+      {/* ── Teacher Routes ──────────────────────────────── */}
+      <Route path="/teacher/intelligence">
+        <ProtectedRoute allowedRoles={["teacher", "admin"]}>
+          <IntelligenceDashboard />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/teacher/:id/edit">
+        <ProtectedRoute allowedRoles={["teacher", "admin"]}>
+          <EditTeacherProfile />
         </ProtectedRoute>
       </Route>
       
-      <Route path="/teacher/:id/edit">
-        <EditTeacherProfile />
-      </Route>
-      
       <Route path="/teacher/:id">
-        <TeacherProfile />
-      </Route>
-      
-      <Route path="/analytics/:id">
-        <Analytics />
+        <ProtectedRoute>
+          <TeacherProfile />
+        </ProtectedRoute>
       </Route>
       
       <Route path="/teacher">
@@ -119,17 +128,39 @@ function Router() {
           <TeacherDashboard />
         </ProtectedRoute>
       </Route>
-      
-      <Route path="/teacher/feedback">
-        <ProtectedRoute allowedRoles={["teacher"]}>
-          <TeacherDashboard />
+
+      {/* ── Shared Module Routes (all authenticated) ──── */}
+      <Route path="/attendance">
+        <ProtectedRoute>
+          <AttendancePage />
         </ProtectedRoute>
       </Route>
 
-      <Route path="/qr-feedback/:teacherId">
-        <QrFeedbackPage />
+      <Route path="/lectures">
+        <ProtectedRoute>
+          <LectureSummarizer />
+        </ProtectedRoute>
       </Route>
-      
+
+      <Route path="/quizzes">
+        <ProtectedRoute>
+          <QuizPage />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/performance">
+        <ProtectedRoute>
+          <PerformanceDashboard />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/study-assistant">
+        <ProtectedRoute>
+          <RAGChatbot />
+        </ProtectedRoute>
+      </Route>
+
+      {/* ── Admin Routes ────────────────────────────────── */}
       <Route path="/admin">
         <ProtectedRoute allowedRoles={["admin"]}>
           <AdminPanel />
@@ -140,6 +171,29 @@ function Router() {
         <ProtectedRoute allowedRoles={["admin"]}>
           <AdminTeachers />
         </ProtectedRoute>
+      </Route>
+
+      <Route path="/admin/lms">
+        <ProtectedRoute allowedRoles={["admin"]}>
+          <LMSIntegration />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/college-sync">
+        <ProtectedRoute>
+          <SimplifiiImport />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/analytics/:id">
+        <ProtectedRoute allowedRoles={["teacher", "admin"]}>
+          <Analytics />
+        </ProtectedRoute>
+      </Route>
+
+      {/* ── Public Routes ───────────────────────────────── */}
+      <Route path="/qr-feedback/:teacherId">
+        <QrFeedbackPage />
       </Route>
       
       <Route component={NotFound} />
@@ -155,8 +209,9 @@ function App() {
           <TooltipProvider>
             <div className="min-h-screen bg-transparent">
               <Navbar />
-              <Router />
-              <AIChatbot />
+              <ErrorBoundary>
+                <Router />
+              </ErrorBoundary>
             </div>
             <Toaster />
           </TooltipProvider>

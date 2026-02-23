@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { GraduationCap, Loader2 } from "lucide-react";
+import { Brain, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -75,7 +75,7 @@ export default function Signup() {
       });
       toast({
         title: "Account created!",
-        description: "Welcome to EduFeedback",
+        description: "Welcome to ClassIntel AI",
       });
       setLocation(role === "teacher" ? "/teacher" : "/student");
     } catch (error) {
@@ -94,13 +94,13 @@ export default function Signup() {
       <Card className="w-full max-w-md glass-card">
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center">
-            <div className="rounded-full bg-primary/10 p-3">
-              <GraduationCap className="h-8 w-8 text-primary" />
+            <div className="rounded-full bg-gradient-to-br from-emerald-500 to-green-600 p-3 shadow-lg shadow-emerald-500/30 dark:shadow-emerald-500/40">
+              <Brain className="h-8 w-8 text-white" />
             </div>
           </div>
           <CardTitle className="text-2xl" data-testid="text-signup-title">Create Account</CardTitle>
           <CardDescription>
-            Join EduFeedback to share and receive feedback
+            Join ClassIntel AI — AI-powered classroom intelligence
           </CardDescription>
         </CardHeader>
         <CardContent>

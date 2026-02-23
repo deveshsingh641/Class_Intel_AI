@@ -8,13 +8,8 @@ if (!process.env.MONGODB_URI) {
   dotenv.config({ path: path.resolve(process.cwd(), "..", ".env") });
 }
 
-const MONGODB_URI = (() => {
-  const uri = process.env.MONGODB_URI;
-  if (!uri) {
-    throw new Error("MONGODB_URI must be set. Did you forget to provision a MongoDB database?");
-  }
-  return uri;
-})();
+// Primary URI (may be undefined if only local MongoDB is available)
+const MONGODB_URI = process.env.MONGODB_URI || "";
 
 const LOCAL_MONGODB_URI =
   process.env.MONGODB_URI_LOCAL ||
@@ -26,9 +21,16 @@ let isConnected = false;
 export async function connectDb() {
   if (isConnected) return;
 
-  const attemptedUris = [MONGODB_URI];
+  const attemptedUris: string[] = [];
+  if (MONGODB_URI) {
+    attemptedUris.push(MONGODB_URI);
+  }
   if (LOCAL_MONGODB_URI && LOCAL_MONGODB_URI !== MONGODB_URI) {
     attemptedUris.push(LOCAL_MONGODB_URI);
+  }
+
+  if (attemptedUris.length === 0) {
+    throw new Error("MONGODB_URI must be set. Did you forget to provision a MongoDB database?");
   }
 
   let lastError: unknown;
