@@ -1020,9 +1020,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async addFavorite(studentId: string, teacherId: string): Promise<Favorite> {
-    const existing = await FavoriteModel.findOne({ studentId, teacherId }).lean();
-    if (existing) return withId<Favorite>(existing);
-    const fav = await FavoriteModel.create({ studentId, teacherId });
+    // Use findOneAndUpdate with upsert — atomic operation, eliminates race conditions
+    const fav = await FavoriteModel.findOneAndUpdate(
+      { studentId, teacherId },
+      { $setOnInsert: { studentId, teacherId, createdAt: new Date() } },
+      { upsert: true, new: true }
+    );
     return withId<Favorite>(fav);
   }
 

@@ -683,6 +683,7 @@ function TeachersTab() {
 
   const { data: favoriteIds = [] } = useQuery<string[]>({
     queryKey: ["/api/favorites/my"],
+    staleTime: 0,  // always refetch from DB — prevents UI showing stale favourites
   });
 
   const filtered = useMemo(() => {
@@ -696,12 +697,21 @@ function TeachersTab() {
   const toggleFav = useMutation({
     mutationFn: async (teacherId: string) => {
       const isFav = favoriteIds.includes(teacherId);
-      await fetch(`${API}/api/favorites/${teacherId}`, {
+      const res = await fetch(`${API}/api/favorites/${teacherId}`, {
         method: isFav ? "DELETE" : "POST",
         headers: getHeaders(),
       });
+      if (!res.ok) {
+        let msg = `Request failed (${res.status})`;
+        try {
+          const data = await res.json();
+          msg = data.error || data.message || msg;
+        } catch {}
+        throw new Error(msg);
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/favorites/my"] }),
+    onError: () => queryClient.invalidateQueries({ queryKey: ["/api/favorites/my"] }),
   });
 
   if (isLoading) return <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{[1,2,3,4].map(i => <Skeleton key={i} className="h-28 rounded-2xl" />)}</div>;

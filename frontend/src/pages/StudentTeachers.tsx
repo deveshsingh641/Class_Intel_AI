@@ -77,6 +77,7 @@ export default function StudentTeachers() {
 
   const { data: favoriteTeacherIds = [] } = useQuery<string[]>({
     queryKey: ["/api/favorites/my"],
+    staleTime: 0,  // always refetch from DB — prevents UI showing stale favourites
   });
 
   const [preferences, setPreferences] = useState("");
