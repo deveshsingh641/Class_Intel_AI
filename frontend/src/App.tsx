@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { Navbar } from "@/components/Navbar";
+import { DatabaseStatusAlert } from "@/components/DatabaseStatusAlert";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
@@ -212,6 +213,7 @@ function App() {
               <ErrorBoundary>
                 <Router />
               </ErrorBoundary>
+              <DatabaseStatusAlert />
             </div>
             <Toaster />
           </TooltipProvider>

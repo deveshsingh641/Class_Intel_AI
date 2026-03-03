@@ -38,6 +38,7 @@ import {
   submitQuizSchema,
 } from "@shared/schema";
 import { aiService } from "./ai-service";
+import * as intelligence from "./intelligence";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -47,7 +48,6 @@ import csv from "csv-parser";
 import { Readable } from "stream";
 import crypto from "crypto";
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:8000";
 
 const rawJwtSecret = process.env.SESSION_SECRET;
 const JWT_SECRET =
@@ -218,6 +218,29 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
+  // Health Check - verify MongoDB is responsive
+  app.get("/api/health", async (req, res) => {
+    try {
+      // Quick DB connectivity check
+      await storage.getTeachers();
+      res.json({
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        mongodb: "connected",
+        uptime: process.uptime(),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("Health check failed:", message);
+      res.status(503).json({
+        status: "error",
+        timestamp: new Date().toISOString(),
+        mongodb: "disconnected",
+        error: message,
+      });
+    }
+  });
+
   // Auth Routes
   app.post("/api/auth/signup", authRateLimiter, async (req, res) => {
     try {
@@ -380,6 +403,25 @@ export async function registerRoutes(
   });
 
   // Doubt Wall Routes
+  app.post("/api/doubts", authenticateToken, requireRole("student"), async (req: AuthRequest, res) => {
+    try {
+      const { teacherId, question } = req.body as { teacherId?: string; question?: string };
+      if (!teacherId || !question?.trim()) {
+        return res.status(400).json({ error: "Teacher ID and question are required" });
+      }
+      const doubt = await storage.createDoubt({
+        teacherId,
+        studentId: req.user!.id,
+        studentName: req.user!.name,
+        question: question.trim(),
+      });
+      res.json(doubt);
+    } catch (error) {
+      console.error("Create doubt error:", error);
+      res.status(500).json({ error: "Failed to create doubt" });
+    }
+  });
+
   app.get("/api/doubts/my", authenticateToken, requireRole("student"), async (req: AuthRequest, res) => {
     try {
       const items = await storage.getDoubtsByStudent(req.user!.id);
@@ -2241,29 +2283,15 @@ export async function registerRoutes(
   });
 
   // ──────────────────────────────────────────────────────────────────────
-  // ClassIntel AI Intelligence Routes (Python AI Service integration)
+  // ClassIntel AI Intelligence Routes (TypeScript / Node.js)
   // ──────────────────────────────────────────────────────────────────────
-
-  /** Helper: call Python AI service */
-  async function callAIService(path: string, body: any): Promise<any> {
-    const res = await fetch(`${AI_SERVICE_URL}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const detail = await res.text().catch(() => res.statusText);
-      throw new Error(`AI Service error (${res.status}): ${detail}`);
-    }
-    return res.json();
-  }
 
   // Full analysis (sentiment + topics) for a single feedback
   app.post("/api/intelligence/analyze", authenticateToken, async (req: AuthRequest, res) => {
     try {
       const { feedback } = req.body as { feedback?: string };
       if (!feedback?.trim()) return res.status(400).json({ error: "Feedback text is required" });
-      const result = await callAIService("/analyze", { feedback: feedback.trim() });
+      const result = intelligence.fullAnalysis(feedback.trim());
       res.json(result);
     } catch (error: any) {
       console.error("Intelligence analyze error:", error);
@@ -2288,7 +2316,7 @@ export async function registerRoutes(
         });
       }
 
-      const result = await callAIService("/sentiment/batch", { feedbacks: texts });
+      const result = intelligence.batchSentiment(texts);
 
       // Save snapshot
       const snapshot = new SentimentSnapshotModel({
@@ -2338,7 +2366,7 @@ export async function registerRoutes(
         return res.json({ frequency: [], weakAreas: [], totalFeedback: 0, topicsDetected: 0 });
       }
 
-      const result = await callAIService("/topics/batch", { feedbacks: texts });
+      const result = intelligence.batchTopicExtraction(texts);
 
       // Save topic analysis
       await TopicAnalysisModel.findOneAndUpdate(
@@ -2373,7 +2401,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Students data is required" });
       }
 
-      const result = await callAIService("/risk/class", { students });
+      const result = intelligence.predictClassRisk(students);
 
       // Save risk predictions
       for (const sr of result.students) {
@@ -2462,11 +2490,7 @@ export async function registerRoutes(
         return res.json({ suggestions: [], summary: "No feedback available yet.", sentimentOverview: {}, topicAnalysis: [] });
       }
 
-      const result = await callAIService("/suggestions", {
-        feedbacks: texts,
-        teacherName: teacher.name,
-        subject: teacher.subject,
-      });
+      const result = intelligence.generateSuggestions(texts, teacher.name, teacher.subject);
 
       // Save suggestions
       await AISuggestionModel.findOneAndUpdate(
@@ -2531,15 +2555,9 @@ export async function registerRoutes(
     }
   });
 
-  // AI Service health check
+  // AI Service health check (always healthy — runs in-process)
   app.get("/api/intelligence/health", async (_req, res) => {
-    try {
-      const aiRes = await fetch(`${AI_SERVICE_URL}/health`);
-      const data = await aiRes.json();
-      res.json({ ...data, backendConnected: true });
-    } catch {
-      res.json({ status: "unavailable", backendConnected: false, message: "Python AI service is not running. Start it with: cd ai-service && python app.py" });
-    }
+    res.json({ status: "healthy", service: "ClassIntel AI", version: "2.0.0", backendConnected: true });
   });
 
   // ════════════════════════════════════════════════════════════════════
@@ -2714,28 +2732,31 @@ export async function registerRoutes(
       const attendedSessionIds = [...new Set(records.map((r: any) => r.sessionId))];
       const attended = attendedSessionIds.length;
 
-      // Count only closed sessions that this student could have attended
-      // (sessions that existed during the student's enrollment period)
-      // Use the student's first attendance record date as a lower bound, or count all if no records
-      let totalQuery: any = { status: "closed" };
-      if (attendedSessionIds.length > 0) {
-        // Get the earliest session the student attended to scope the total
-        const earliestRecord = records.reduce((min: any, r: any) =>
-          new Date(r.markedAt) < new Date(min.markedAt) ? r : min
-        , records[0]);
-        const earliestSession = await AttendanceSessionModel.findById(earliestRecord.sessionId).lean();
-        if (earliestSession) {
-          totalQuery.date = { $gte: (earliestSession as any).date };
-        }
-      }
-      const totalSessions = await AttendanceSessionModel.countDocuments(totalQuery);
-
-      // Also include currently active sessions in the total for a more accurate picture
-      const activeSessions = await AttendanceSessionModel.countDocuments({ status: "active" });
-      const total = totalSessions + activeSessions;
+      // Fetch all sessions (both closed and active) for breakdown
+      const allSessions = await AttendanceSessionModel.find({}).lean();
+      const total = allSessions.length;
 
       const percentage = total > 0 ? Math.round((attended / total) * 100) : 100;
-      res.json({ attended, total, percentage, records: records.map((r: any) => ({ ...r, id: r._id })) });
+
+      // Build per-subject breakdown
+      const subjectMap = new Map<string, { total: number; attended: number }>();
+      for (const session of allSessions) {
+        const subj = (session as any).subject || "Unknown";
+        if (!subjectMap.has(subj)) subjectMap.set(subj, { total: 0, attended: 0 });
+        subjectMap.get(subj)!.total++;
+        if (attendedSessionIds.includes((session as any)._id.toString())) {
+          subjectMap.get(subj)!.attended++;
+        }
+      }
+
+      const subjects = Array.from(subjectMap.entries()).map(([subject, data]) => ({
+        subject,
+        totalClasses: data.total,
+        attended: data.attended,
+        percentage: data.total > 0 ? Math.round((data.attended / data.total) * 100) : 0,
+      }));
+
+      res.json({ attended, total, percentage, subjects, records: records.map((r: any) => ({ ...r, id: r._id })) });
     } catch (error) {
       console.error("Attendance summary error:", error);
       res.status(500).json({ error: "Failed to get attendance summary" });

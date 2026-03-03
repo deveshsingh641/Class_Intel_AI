@@ -7,29 +7,21 @@ function getAuthToken(): string | null {
 let apiBaseUrl: string | null = null;
 
 export function getApiBaseUrl(): string {
-  if (apiBaseUrl) return apiBaseUrl;
-  
-  let base = (import.meta as any).env?.VITE_API_URL as string | undefined;
-  
-  // Auto-detect backend API from current hostname if not configured
-  if (!base) {
-    if (typeof window !== "undefined") {
-      const backendPort = (import.meta as any).env?.VITE_BACKEND_PORT || 5001;
-      base = `http://${window.location.hostname}:${backendPort}`;
-      if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-        console.log(
-          `🔗 Auto-detected backend API: ${base} (Your current IP: ${window.location.hostname})`
-        );
-      }
-    } else {
-      return "/api"; // Fallback for SSR or non-browser environments
-    }
-  } else {
-    console.log(`🔗 Using configured backend API: ${base}`);
+  if (apiBaseUrl !== null) return apiBaseUrl;
+
+  const explicitBase = (import.meta as any).env?.VITE_API_URL as string | undefined;
+
+  if (explicitBase) {
+    // An explicit URL was configured (e.g. production deployment)
+    apiBaseUrl = explicitBase.replace(/\/$/, "");
+    return apiBaseUrl;
   }
-  
-  apiBaseUrl = base;
-  return base;
+
+  // In development the Vite dev-server proxies /api → backend, so we use
+  // relative paths.  This avoids cross-origin fetch errors and works regardless
+  // of which port the backend is running on.
+  apiBaseUrl = "";
+  return apiBaseUrl;
 }
 
 export function withApiBase(url: string): string {

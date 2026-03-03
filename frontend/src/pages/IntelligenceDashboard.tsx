@@ -113,10 +113,10 @@ export default function IntelligenceDashboard() {
             <Bell className="h-5 w-5 text-amber-600 shrink-0" />
             <div>
               <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
-                Python AI Service is not running
+                AI Engine is initializing...
               </p>
               <p className="text-xs text-amber-600 dark:text-amber-400">
-                Start it with: <code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">cd ai-service && pip install -r requirements.txt && python app.py</code>
+                Please ensure the backend server is running. The intelligence features run directly inside the Node.js server.
               </p>
             </div>
           </CardContent>

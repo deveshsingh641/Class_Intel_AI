@@ -47,7 +47,7 @@ export default function Home() {
                   </p>
                   <p className="text-base text-muted-foreground/80 max-w-xl mx-auto">
                     Sentiment analysis, risk prediction, smart suggestions, and real-time
-                    insights — all driven by machine learning.
+                    insights — all driven by AI.
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -115,7 +115,7 @@ export default function Home() {
                 </div>
                 <h3 className="font-semibold mb-2">Risk Prediction</h3>
                 <p className="text-sm text-muted-foreground">
-                  ML-based student risk scoring using attendance, marks, sentiment & engagement
+                  AI-based student risk scoring using attendance, marks, sentiment & engagement
                 </p>
               </CardContent>
             </Card>
@@ -279,7 +279,7 @@ export default function Home() {
                 </div>
                 <h3 className="font-semibold">2. Analyze</h3>
                 <p className="text-sm text-muted-foreground">
-                  Python AI engine runs sentiment analysis, topic extraction, and risk
+                  Node.js AI engine runs sentiment analysis, topic extraction, and risk
                   prediction on every piece of feedback.
                 </p>
               </CardContent>

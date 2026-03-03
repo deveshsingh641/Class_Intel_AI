@@ -61,7 +61,7 @@ export default function AdminPanel() {
     teacherName: string | null;
     department: string | null;
   }[]>({
-    queryKey: ["/api/admin/doubts/overdue", slaDays],
+    queryKey: [`/api/admin/doubts/overdue?days=${slaDays}`],
   });
 
   type FlaggedFeedback = {

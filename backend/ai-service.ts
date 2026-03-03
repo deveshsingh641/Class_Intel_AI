@@ -172,7 +172,9 @@ function builtinSentimentAnalysis(text: string): string {
 }
 
 function builtinQualityScore(text: string, rating: number): string {
-  const wordCount = text.split(/\s+/).length;
+  // BUG FIX: "".split(/\s+/) returns [""](length 1), not [](length 0).
+  // Use trim() first so empty/whitespace-only feedback is counted as 0 words.
+  const wordCount = text.trim() === "" ? 0 : text.trim().split(/\s+/).length;
   let score = 5;
   if (wordCount > 30) score += 2;
   else if (wordCount > 15) score += 1;
@@ -395,7 +397,7 @@ const ACADEMIC_KNOWLEDGE: Record<string, Record<string, string>> = {
       "• **Transpose**: Flip rows and columns (Aᵀ)\n" +
       "• **Determinant**: Scalar value for square matrices, det(A)\n" +
       "• **Inverse**: A⁻¹ exists if det(A) ≠ 0; AA⁻¹ = I\n\n" +
-      "Matrices are fundamental in computer graphics, machine learning, systems of equations, and quantum mechanics.",
+      "Matrices are fundamental in computer graphics, data analysis, systems of equations, and quantum mechanics.",
   },
   probability: {
     keywords: "probability|bayes|conditional probability",
@@ -407,7 +409,7 @@ const ACADEMIC_KNOWLEDGE: Record<string, Record<string, string>> = {
       "• P(A|B) = P(A ∩ B) / P(B) (Conditional)\n" +
       "• Bayes' Theorem: P(A|B) = P(B|A)·P(A) / P(B)\n\n" +
       "**Distributions:** Normal, Binomial, Poisson, Exponential\n\n" +
-      "Probability is the foundation of statistics, machine learning, risk analysis, and decision making.",
+      "Probability is the foundation of statistics, data modeling, risk analysis, and decision making.",
   },
   // Physics
   newton: {
@@ -434,7 +436,7 @@ const ACADEMIC_KNOWLEDGE: Record<string, Record<string, string>> = {
       "3. **Polymorphism** – Same method behaves differently based on the object (overriding/overloading).\n" +
       "4. **Abstraction** – Hiding complex implementation, showing only essential features.\n\n" +
       "**Key Concepts:** Classes, Objects, Constructors, Interfaces, Abstract Classes\n\n" +
-      "OOP is used in Java, Python, C++, C#, TypeScript, and most modern languages.",
+      "OOP is used in Java, C++, C#, TypeScript, Swift, and most modern languages.",
   },
   database: {
     keywords: "database|sql|normalization|dbms|rdbms",
@@ -466,17 +468,17 @@ const ACADEMIC_KNOWLEDGE: Record<string, Record<string, string>> = {
       "O(1) < O(log n) < O(n) < O(n log n) < O(n²) < O(2ⁿ)\n\n" +
       "Understanding algorithms is crucial for writing efficient code and acing technical interviews.",
   },
-  "machine learning": {
-    keywords: "machine learning|supervised|unsupervised|neural network|deep learning",
+  "artificial intelligence": {
+    keywords: "artificial intelligence|supervised|unsupervised|neural network|deep learning|AI algorithms",
     answer:
-      "**Machine Learning (ML)** is a branch of AI where systems learn from data without being explicitly programmed.\n\n" +
-      "**Types:**\n" +
+      "**Artificial Intelligence (AI)** is the simulation of human intelligence processes by computer systems.\n\n" +
+      "**Core Branches:**\n" +
       "1. **Supervised Learning** – Trained on labeled data (Classification, Regression)\n" +
       "2. **Unsupervised Learning** – Finds patterns in unlabeled data (Clustering, Dimensionality Reduction)\n" +
       "3. **Reinforcement Learning** – Learns through rewards and penalties\n\n" +
       "**Key Algorithms:** Linear Regression, Decision Trees, Random Forest, SVM, K-Means, Neural Networks\n\n" +
       "**Deep Learning** uses multi-layer neural networks for complex tasks like image recognition, NLP, and generative AI.\n\n" +
-      "Popular frameworks: TensorFlow, PyTorch, scikit-learn.",
+      "Popular JS/Node.js AI libraries: TensorFlow.js, Brain.js, Natural.",
   },
 };
 
@@ -543,8 +545,9 @@ async function generateJson<T = any>(instruction: string, input: string): Promis
   try {
     return JSON.parse(text) as T;
   } catch (e) {
-    // Don't silently fail - propagate JSON parse errors so API handlers can return 502 Bad Gateway
-    console.error("Failed to parse AI JSON-style response", text, e);
+    // BUG FIX: truncate potentially huge AI response before logging to avoid flooding console.
+    const preview = text.length > 300 ? text.slice(0, 300) + "...[truncated]" : text;
+    console.error("Failed to parse AI JSON-style response", preview, e);
     const err: any = new Error(
       `AI service returned invalid JSON. This might be a temporary service issue. Please try again later.`
     );

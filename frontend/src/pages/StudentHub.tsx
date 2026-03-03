@@ -307,9 +307,10 @@ function OverviewTab({ stats }: { stats: any }) {
 
 // ── Attendance Tab ───────────────────────────────────────────
 function AttendanceTab() {
-  const { data: summary = [], isLoading } = useQuery<any[]>({
+  const { data: summaryData, isLoading } = useQuery<any>({
     queryKey: ["/api/attendance/my-summary"],
   });
+  const summary: any[] = summaryData?.subjects || [];
 
   const { data: simplifiiData } = useQuery<any>({
     queryKey: [`${API}/api/simplifii/my-data`],
@@ -805,7 +806,7 @@ export default function StudentHub() {
   const { data: submittedIds = [] } = useQuery<string[]>({ queryKey: ["/api/feedback/my-submissions"] });
   const { data: myDoubts = [] } = useQuery<any[]>({ queryKey: ["/api/doubts/my"] });
   const { data: myFeedback = [] } = useQuery<any[]>({ queryKey: ["/api/feedback/my"] });
-  const { data: attendanceSummary = [] } = useQuery<any[]>({ queryKey: ["/api/attendance/my-summary"] });
+  const { data: attendanceSummary } = useQuery<any>({ queryKey: ["/api/attendance/my-summary"] });
   const { data: quizAttempts = [] } = useQuery<any[]>({ queryKey: ["/api/quizzes"] });
   const { data: performanceData } = useQuery<any>({
     queryKey: ["/api/performance/my"],
@@ -813,9 +814,7 @@ export default function StudentHub() {
   });
 
   const stats = useMemo(() => {
-    const attPct = attendanceSummary.length > 0
-      ? Math.round(attendanceSummary.reduce((s: number, a: any) => s + (a.attendancePercent || a.percentage || 0), 0) / attendanceSummary.length)
-      : 0;
+    const attPct = attendanceSummary?.percentage ?? 0;
 
     return {
       attendancePercent: attPct,

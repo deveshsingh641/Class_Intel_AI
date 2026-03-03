@@ -35,7 +35,7 @@ const getRankBadgeColor = (rank: number) => {
 
 export function Leaderboard({ type, limit = 10, title, showRank = true, className }: LeaderboardProps) {
   const { data: teachers = [], isLoading } = useQuery<LeaderboardItem[]>({
-    queryKey: [`/api/leaderboard/${type}`, limit],
+    queryKey: [`/api/leaderboard/${type}?limit=${limit}`],
   });
 
   const defaultTitles = {

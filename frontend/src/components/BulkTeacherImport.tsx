@@ -25,8 +25,10 @@ export function BulkTeacherImport({ onImportComplete }: BulkTeacherImportProps) 
       const formData = new FormData();
       formData.append('file', file);
       
+      const token = localStorage.getItem('token');
       const response = await fetch('/api/admin/teachers/bulk-import', {
         method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       });
       

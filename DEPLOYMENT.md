@@ -2,6 +2,8 @@
 
 This guide walks you through deploying your MERN stack application using Vercel for the React frontend and Render for the Node.js backend.
 
+> **💡 Tip:** Before deploying to production, make sure everything works locally. See [MONGODB_SETUP.md](./MONGODB_SETUP.md) for local development setup and troubleshooting.
+
 ## 1. Prerequisites
 
 *   **GitHub**: Ensure your project is pushed to a GitHub repository.

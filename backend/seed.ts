@@ -16,7 +16,7 @@ const DEPARTMENTS = [
 const INITIAL_TEACHERS = [
   // CSE Department
   { name: "Shweta Kaushik", department: "Computer Science & Engineering", subject: "Web Technology" },
-  { name: "Tripti Pandey", department: "Computer Science & Engineering", subject: "Machine Learning Techniques" },
+  { name: "Tripti Pandey", department: "Computer Science & Engineering", subject: "Data Science & Analytics" },
   { name: "Ayush Aggarwal", department: "Computer Science & Engineering", subject: "DBMS" },
   { name: "Shaili Gupta", department: "Computer Science & Engineering", subject: "OOSD" },
   { name: "Shalini Singh", department: "Computer Science & Engineering", subject: "DAA" },
@@ -47,7 +47,7 @@ const DEMO_STUDENTS = [
 const SAMPLE_FEEDBACK = [
   { rating: 5, comment: "Excellent teaching methodology and very engaging lectures.", subject: "Web Technology" },
   { rating: 4, comment: "Good explanations but could use more practical examples.", subject: "DBMS" },
-  { rating: 5, comment: "Best professor! Makes complex topics very easy to understand.", subject: "Machine Learning Techniques" },
+  { rating: 5, comment: "Best professor! Makes complex topics very easy to understand.", subject: "Data Science & Analytics" },
   { rating: 3, comment: "Decent teaching but needs to slow down a bit.", subject: "DSA" },
   { rating: 4, comment: "Very knowledgeable and helpful during office hours.", subject: "DAA" },
   { rating: 5, comment: "Inspiring teacher, makes you love the subject.", subject: "FSD" },

@@ -46,6 +46,7 @@ export function Navbar() {
         ]
       : [
           { href: "/student", label: "My Hub", icon: GraduationCap },
+          { href: "/attendance", label: "Attendance", icon: ClipboardCheck },
           { href: "/quizzes", label: "Quizzes", icon: FileText },
           { href: "/lectures", label: "Lectures", icon: BookOpen },
           { href: "/performance", label: "Performance", icon: BarChart3 },
