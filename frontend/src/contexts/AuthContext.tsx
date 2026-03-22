@@ -37,7 +37,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       // Log the API base URL at startup
-      getApiBaseUrl();
+      const base = getApiBaseUrl();
+      console.log("[auth] API base:", base || "(relative /api)");
       
       const token = localStorage.getItem("token");
       const storedUser = localStorage.getItem("user");

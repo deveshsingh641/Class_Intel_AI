@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { withApiBase } from '@/lib/queryClient';
 
 export interface HealthStatus {
   status: 'ok' | 'error' | 'checking';
@@ -26,9 +27,10 @@ export function useMongoDBHealth(enabled = true, intervalMs = 30000) {
 
     const checkHealth = async () => {
       try {
-        const response = await fetch('/api/health', { 
+        const response = await fetch(withApiBase('/api/health'), { 
           method: 'GET',
           signal: AbortSignal.timeout(8000), // 8 second timeout
+          credentials: 'include',
         });
         
         if (response.ok) {
