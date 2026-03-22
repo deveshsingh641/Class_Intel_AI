@@ -1,5 +1,6 @@
 import { build as esbuild } from "esbuild";
 import { rm, readFile, mkdir, cp } from "fs/promises";
+import fs from "fs";
 import path from "path";
 import { execSync } from "child_process";
 
@@ -43,10 +44,10 @@ async function buildAll() {
 
   const frontendDist = path.resolve(frontendRoot, "dist");
   const publicOut = path.resolve(process.cwd(), "dist", "public");
-  await mkdir(publicOut, { recursive: true });
-  try {
+  if (fs.existsSync(frontendDist)) {
+    await mkdir(publicOut, { recursive: true });
     await cp(frontendDist, publicOut, { recursive: true });
-  } catch (e) {
+  } else {
     console.log("Frontend dist not found, skipping copy");
   }
 

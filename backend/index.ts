@@ -159,7 +159,8 @@ app.use((req, res, next) => {
     // Serve built frontend from the same server in production
     if (process.env.NODE_ENV === "production") {
       const publicDir = path.resolve(process.cwd(), "dist", "public");
-      if (fs.existsSync(publicDir)) {
+      const indexHtmlPath = path.join(publicDir, "index.html");
+      if (fs.existsSync(publicDir) && fs.existsSync(indexHtmlPath)) {
         app.use(
           express.static(publicDir, {
             immutable: true,
@@ -170,7 +171,7 @@ app.use((req, res, next) => {
         app.get("*", (_req, res) => {
           // HTML should not be cached aggressively so new deploys show up immediately
           res.setHeader("Cache-Control", "no-cache");
-          res.sendFile(path.join(publicDir, "index.html"));
+          res.sendFile(indexHtmlPath);
         });
       } else {
         log(`Frontend build not found at ${publicDir}`, "express");
@@ -178,7 +179,7 @@ app.use((req, res, next) => {
     }
 
     // Use the PORT from environment or default to 5001
-    const desiredPort = parseInt(process.env.BACKEND_PORT || process.env.PORT || "5001", 10);
+    const desiredPort = parseInt(process.env.PORT || process.env.BACKEND_PORT || "5001", 10);
 
     httpServer.on("error", (err: any) => {
       if (err?.code === "EADDRINUSE") {

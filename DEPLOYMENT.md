@@ -27,7 +27,7 @@ This guide walks you through deploying your MERN stack application using Vercel 
     *   **Branch**: `main` (or your working branch)
     *   **Root Directory**: Leave empty (defaults to repo root).
     *   **Runtime**: **Node**
-    *   **Build Command**: `npm install && npm run build:backend`
+    *   **Build Command**: `npm run build:backend`
     *   **Start Command**: `npm run start:backend`
     *   **Instance Type**: Free
 
@@ -39,6 +39,7 @@ This guide walks you through deploying your MERN stack application using Vercel 
     *   `CORS_ORIGIN`: `*` (We will update this later with your Vercel URL, but `*` is fine for testing).
     *   `HF_API_TOKEN`: Your HuggingFace token.
     *   `OPENAI_API_KEY`: Your OpenAI key (if used).
+    *   `PUPPETEER_SKIP_DOWNLOAD`: `true` (Optional, but recommended on free tiers if Chromium download causes build failures).
 
 6.  Click **Create Web Service**.
 7.  Wait for the deployment to finish. Copy the **Service URL** (e.g., `https://my-app-backend.onrender.com`).
@@ -76,8 +77,8 @@ This guide walks you through deploying your MERN stack application using Vercel 
 ## 5. Troubleshooting
 
 *   **Build Fails on Render (Missing modules)**:
-    *   Ensure `npm install` runs in the root so workspaces are respected.
-    *   The command `npm install && npm run build:backend` covers this.
+    *   Use `npm run build:backend` as the Render build command. It installs backend dependencies and then builds.
+    *   Make sure your Render service **Root Directory** points to this repository root.
 *   **Database Connection Error**:
     *   Check your `MONGODB_URI`.
     *   Ensure "Network Access" in MongoDB Atlas allows `0.0.0.0/0`.
