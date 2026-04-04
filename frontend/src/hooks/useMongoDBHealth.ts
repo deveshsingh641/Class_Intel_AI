@@ -25,15 +25,30 @@ export function useMongoDBHealth(enabled = true, intervalMs = 30000) {
   useEffect(() => {
     if (!enabled) return;
 
+    // Render free-tier services can take 10–30s to wake up on the first request.
+    // Use a longer timeout in production builds so we don't show false "MongoDB down" alerts.
+    const timeoutMs = import.meta.env.PROD ? 25000 : 8000;
+
     const checkHealth = async () => {
       try {
-        const response = await fetch(withApiBase('/api/health'), { 
+        const url = withApiBase('/api/health');
+        const response = await fetch(url, { 
           method: 'GET',
-          signal: AbortSignal.timeout(8000), // 8 second timeout
+          signal: AbortSignal.timeout(timeoutMs),
           credentials: 'include',
         });
+
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.toLowerCase().includes('application/json');
         
         if (response.ok) {
+          if (!isJson) {
+            const bodyPreview = (await response.text()).slice(0, 200);
+            throw new Error(
+              `Health check returned non-JSON from ${url}. This usually means the frontend is hitting the wrong host (missing VITE_API_URL on Vercel). Response starts with: ${JSON.stringify(bodyPreview)}`,
+            );
+          }
+
           const data = await response.json();
           setHealth({
             status: data.status || 'ok',
@@ -44,17 +59,26 @@ export function useMongoDBHealth(enabled = true, intervalMs = 30000) {
           });
           setConsecutiveFailures(0);
         } else {
-          const data = await response.json().catch(() => ({}));
+          const data = isJson ? await response.json().catch(() => ({})) : {};
+          const fallbackText = !isJson ? (await response.text()).slice(0, 200) : undefined;
           setHealth({
             status: 'error',
             mongodb: 'disconnected',
-            error: data.error || `HTTP ${response.status}`,
+            error:
+              data.error ||
+              data.message ||
+              (fallbackText ? `HTTP ${response.status}: ${fallbackText}` : `HTTP ${response.status}`),
             timestamp: new Date().toISOString(),
           });
           setConsecutiveFailures(prev => prev + 1);
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
+        const message =
+          error && typeof error === 'object' && (error as any).name === 'AbortError'
+            ? `Timed out contacting the backend. If you're using Render free tier, wait ~30s for it to wake up and refresh.`
+            : error instanceof Error
+              ? error.message
+              : 'Unknown error';
         setHealth({
           status: 'error',
           mongodb: 'disconnected',

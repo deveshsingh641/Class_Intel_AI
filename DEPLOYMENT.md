@@ -61,6 +61,7 @@ This guide walks you through deploying your MERN stack application using Vercel 
     *   Key: `VITE_API_URL`
     *   Value: Your **Render Backend URL** (e.g., `https://my-app-backend.onrender.com`).
         *   *Note: Do not add a trailing slash `/`.*
+        *   *Important: This repo ignores `.env` / `.env.*` via `.gitignore`, so setting this in the **Vercel Dashboard** is the reliable way to ensure the build uses the correct backend URL.*
 
 6.  Click **Deploy**.
 

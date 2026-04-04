@@ -1,5 +1,7 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+const DEFAULT_PROD_API_URL = "https://lecture-feedback-system-1.onrender.com";
+
 function getAuthToken(): string | null {
   return localStorage.getItem("token");
 }
@@ -9,11 +11,19 @@ let apiBaseUrl: string | null = null;
 export function getApiBaseUrl(): string {
   if (apiBaseUrl !== null) return apiBaseUrl;
 
-  const explicitBase = (import.meta as any).env?.VITE_API_URL as string | undefined;
+  const explicitBaseRaw = (import.meta as any).env?.VITE_API_URL as string | undefined;
+  const explicitBase = explicitBaseRaw?.trim();
 
   if (explicitBase) {
     // An explicit URL was configured (e.g. production deployment)
     apiBaseUrl = explicitBase.replace(/\/$/, "");
+    return apiBaseUrl;
+  }
+
+  // If no env var is present in a production build (very common on Vercel when
+  // env vars are not set in the dashboard), fall back to the deployed backend.
+  if (import.meta.env.PROD) {
+    apiBaseUrl = DEFAULT_PROD_API_URL.replace(/\/$/, "");
     return apiBaseUrl;
   }
 

@@ -7,13 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { getApiBaseUrl } from "@/lib/queryClient";
 import {
   Camera, CheckCircle, XCircle, Users, Calendar,
   Clock, Shield, AlertTriangle, Video, UserCheck,
   BarChart3, Eye
 } from "lucide-react";
 
-const API = import.meta.env.VITE_API_URL || "";
+const API = getApiBaseUrl();
 
 function getHeaders() {
   const token = localStorage.getItem("token");

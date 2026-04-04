@@ -64,9 +64,20 @@ async function connectDbWithRetry() {
 }
 
 const corsOrigin = process.env.CORS_ORIGIN;
+const parsedOrigins = corsOrigin
+  ? corsOrigin
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+  : [];
+
+// Important: do NOT send `Access-Control-Allow-Origin: *` with `credentials: true`.
+// Browsers will block it and surface as "Failed to fetch".
+const allowAnyOrigin = parsedOrigins.length === 0 || parsedOrigins.includes("*");
+
 app.use(
   cors({
-    origin: corsOrigin ? corsOrigin.split(",").map((s) => s.trim()).filter(Boolean) : true,
+    origin: allowAnyOrigin ? true : parsedOrigins,
     credentials: true,
   }),
 );
@@ -178,8 +189,18 @@ app.use((req, res, next) => {
       }
     }
 
-    // Use the PORT from environment or default to 5001
-    const desiredPort = parseInt(process.env.PORT || process.env.BACKEND_PORT || "5001", 10);
+    // Port selection:
+    // - In production hosts (Render), `PORT` is required.
+    // - In local dev, `PORT` is often used for the frontend dev server, so the backend
+    //   should prefer `BACKEND_PORT` to avoid collisions.
+    const isProduction = process.env.NODE_ENV === "production";
+    const desiredPort = parseInt(
+      (isProduction ? process.env.PORT : undefined) ||
+        process.env.BACKEND_PORT ||
+        process.env.PORT ||
+        "5001",
+      10,
+    );
 
     httpServer.on("error", (err: any) => {
       if (err?.code === "EADDRINUSE") {

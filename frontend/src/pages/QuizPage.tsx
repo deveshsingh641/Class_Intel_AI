@@ -12,8 +12,9 @@ import {
   Clock, Shield, Eye, EyeOff, Trophy, BarChart3,
   Trash2, Play, Flag
 } from "lucide-react";
+import { getApiBaseUrl } from "@/lib/queryClient";
 
-const API = import.meta.env.VITE_API_URL || "";
+const API = getApiBaseUrl();
 
 function getHeaders() {
   const token = localStorage.getItem("token");

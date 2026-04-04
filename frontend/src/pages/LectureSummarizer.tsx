@@ -7,12 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { getApiBaseUrl } from "@/lib/queryClient";
 import {
   Mic, MicOff, FileText, BookOpen, Brain, Clock,
   Sparkles, ChevronDown, ChevronUp, Play, Square
 } from "lucide-react";
 
-const API = import.meta.env.VITE_API_URL || "";
+const API = getApiBaseUrl();
 
 function getHeaders() {
   const token = localStorage.getItem("token");

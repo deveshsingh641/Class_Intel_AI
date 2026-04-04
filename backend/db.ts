@@ -21,11 +21,21 @@ let isConnected = false;
 export async function connectDb() {
   if (isConnected) return;
 
+  const isProduction = process.env.NODE_ENV === "production";
+
+  // In production, never fall back to a local MongoDB instance.
+  // Hosts like Render/Vercel won't have one, and it hides the real issue (missing env var / Atlas access).
+  if (isProduction && !process.env.MONGODB_URI) {
+    throw new Error(
+      "MONGODB_URI must be set in production. Add it to your hosting provider environment variables (and ensure MongoDB Atlas Network Access allows your host).",
+    );
+  }
+
   const attemptedUris: string[] = [];
   if (MONGODB_URI) {
     attemptedUris.push(MONGODB_URI);
   }
-  if (LOCAL_MONGODB_URI && LOCAL_MONGODB_URI !== MONGODB_URI) {
+  if (!isProduction && LOCAL_MONGODB_URI && LOCAL_MONGODB_URI !== MONGODB_URI) {
     attemptedUris.push(LOCAL_MONGODB_URI);
   }
 

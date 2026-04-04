@@ -10,8 +10,11 @@ import {
   CheckCircle2, XCircle, Loader2, FileSpreadsheet,
   ExternalLink, Database, RefreshCw, Shield
 } from "lucide-react";
+import { getApiBaseUrl } from "@/lib/queryClient";
 
-const API = import.meta.env.VITE_API_URL || "";
+const API = getApiBaseUrl();
+
+const GOOGLE_REDIRECT_URI_EXAMPLE = `${(API || "http://localhost:5001").replace(/\/$/, "")}/api/lms/google/callback`;
 
 function getHeaders() {
   const token = localStorage.getItem("token");
@@ -181,7 +184,7 @@ function GoogleClassroomCard() {
             <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">
 {`GOOGLE_CLIENT_ID=your-client-id
 GOOGLE_CLIENT_SECRET=your-secret
-GOOGLE_REDIRECT_URI=http://localhost:5001/api/lms/google/callback`}
+GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI_EXAMPLE}`}
             </pre>
             <p className="text-muted-foreground text-xs">
               Get credentials from <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-primary underline">Google Cloud Console</a>

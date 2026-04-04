@@ -15,8 +15,9 @@ import {
   Radar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend, Cell
 } from "recharts";
+import { getApiBaseUrl } from "@/lib/queryClient";
 
-const API = import.meta.env.VITE_API_URL || "";
+const API = getApiBaseUrl();
 
 function getHeaders() {
   const token = localStorage.getItem("token");
