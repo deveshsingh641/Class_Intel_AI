@@ -33,12 +33,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const isDev = import.meta.env.DEV;
 
   useEffect(() => {
     const initAuth = async () => {
       // Log the API base URL at startup
       const base = getApiBaseUrl();
-      console.log("[auth] API base:", base || "(relative /api)");
+      if (isDev) {
+        console.log("[auth] API base:", base || "(relative /api)");
+      }
       
       const token = localStorage.getItem("token");
       const storedUser = localStorage.getItem("user");
@@ -78,7 +81,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // 401 / 403 means the token is genuinely rejected (expired, secret
           // changed, revoked).  Only in this case do we clear credentials.
           if (response.status === 401 || response.status === 403) {
-            console.warn("Auth token rejected (status", response.status, ") — clearing session");
+            if (isDev) {
+              console.warn(
+                "Auth token rejected (status",
+                response.status,
+                ") — clearing session"
+              );
+            }
             localStorage.removeItem("token");
             localStorage.removeItem("user");
             setUser(null);
@@ -89,11 +98,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Any other server error (500, 502, etc.) — the token might still be
           // fine but the server is having issues.  Fall through to retry / use
           // cached user.
-          console.warn(`Auth check returned ${response.status}, attempt ${attempt + 1}/${MAX_RETRIES + 1}`);
+          if (isDev) {
+            console.warn(
+              `Auth check returned ${response.status}, attempt ${attempt + 1}/${MAX_RETRIES + 1}`
+            );
+          }
         } catch (networkError) {
           // Network error (server not reachable, e.g. still restarting after
           // code changes).  Do NOT clear credentials — retry instead.
-          console.warn(`Auth check network error (attempt ${attempt + 1}/${MAX_RETRIES + 1}):`, networkError);
+          if (isDev) {
+            console.warn(
+              `Auth check network error (attempt ${attempt + 1}/${MAX_RETRIES + 1}):`,
+              networkError
+            );
+          }
         }
 
         // Wait before retrying (skip wait on last attempt)
@@ -104,7 +122,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // All retries exhausted but no definitive 401/403 received.
       // Keep the stored user so the session survives server restarts.
-      console.warn("Server unreachable after retries — using cached session");
+      if (isDev) {
+        console.warn("Server unreachable after retries — using cached session");
+      }
       try {
         setUser(JSON.parse(storedUser));
       } catch {

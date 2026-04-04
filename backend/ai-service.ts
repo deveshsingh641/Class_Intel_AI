@@ -533,7 +533,9 @@ async function generateText(prompt: string): Promise<string> {
   }
   
   // Built-in fallback (always works)
-  console.log("Using built-in AI fallback");
+  if (process.env.NODE_ENV !== "production") {
+    console.log("Using built-in AI fallback");
+  }
   return builtinGenerate(prompt);
 }
 
@@ -618,6 +620,16 @@ export interface TeacherRecommendation {
 }
 
 export class AIService {
+  /**
+   * Generate plain text from a prompt.
+   *
+   * This is a thin wrapper around the internal text generation helper so routes
+   * can call `aiService.generateText(...)`.
+   */
+  async generateText(prompt: string): Promise<string> {
+    return generateText(prompt);
+  }
+
   /**
    * Analyze sentiment of feedback comment
    */
@@ -993,7 +1005,9 @@ export class AIService {
       }
 
       // Use dedicated academic fallback instead of generic builtinGenerate
-      console.log("Using built-in academic answer for doubt");
+      if (process.env.NODE_ENV !== "production") {
+        console.log("Using built-in academic answer for doubt");
+      }
       return builtinAcademicAnswer(question, teacherSubject);
     } catch (error) {
       console.error("Auto-answer doubt error:", error);

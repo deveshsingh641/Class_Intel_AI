@@ -76,7 +76,7 @@ function StudentAttendance() {
     },
   });
 
-  const { data: sessions = [], isLoading: sessionsLoading } = useQuery({
+  const { data: sessionsRaw = [], isLoading: sessionsLoading } = useQuery({
     queryKey: ["/api/attendance/sessions"],
     queryFn: async () => {
       const res = await fetch(`${API}/api/attendance/sessions`, { headers: getHeaders() });
@@ -87,6 +87,8 @@ function StudentAttendance() {
       return res.json();
     },
   });
+
+  const sessions = Array.isArray(sessionsRaw) ? sessionsRaw : [];
 
   const registerFaceMutation = useMutation({
     mutationFn: async () => {
@@ -161,7 +163,7 @@ function StudentAttendance() {
     registerFaceMutation.mutate();
   }, [registerFaceMutation]);
 
-  const activeSessions = (sessions as any[]).filter((s: any) => s.status === "active");
+  const activeSessions = sessions.filter((s: any) => s.status === "active");
 
   return (
     <div className="container mx-auto p-4 space-y-6">
@@ -322,7 +324,7 @@ function TeacherAttendance() {
   const [subject, setSubject] = useState("");
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
 
-  const { data: sessions = [] } = useQuery({
+  const { data: sessionsRaw = [] } = useQuery({
     queryKey: ["/api/attendance/sessions"],
     queryFn: async () => {
       const res = await fetch(`${API}/api/attendance/sessions`, { headers: getHeaders() });
@@ -334,7 +336,7 @@ function TeacherAttendance() {
     },
   });
 
-  const { data: records = [] } = useQuery({
+  const { data: recordsRaw = [] } = useQuery({
     queryKey: ["/api/attendance/records", selectedSession],
     queryFn: async () => {
       if (!selectedSession) return [];
@@ -347,6 +349,9 @@ function TeacherAttendance() {
     },
     enabled: !!selectedSession,
   });
+
+  const sessions = Array.isArray(sessionsRaw) ? sessionsRaw : [];
+  const records = Array.isArray(recordsRaw) ? recordsRaw : [];
 
   const createSessionMutation = useMutation({
     mutationFn: async () => {
@@ -383,8 +388,8 @@ function TeacherAttendance() {
     },
   });
 
-  const activeSessions = (sessions as any[]).filter((s: any) => s.status === "active");
-  const closedSessions = (sessions as any[]).filter((s: any) => s.status === "closed");
+  const activeSessions = sessions.filter((s: any) => s.status === "active");
+  const closedSessions = sessions.filter((s: any) => s.status === "closed");
 
   return (
     <div className="container mx-auto p-4 space-y-6">
@@ -464,7 +469,7 @@ function TeacherAttendance() {
             <CardTitle>Attendance Records</CardTitle>
           </CardHeader>
           <CardContent>
-            {(records as any[]).length === 0 ? (
+            {records.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No attendance records yet</p>
             ) : (
               <div className="overflow-x-auto">
@@ -479,7 +484,7 @@ function TeacherAttendance() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(records as any[]).map((r: any) => (
+                    {records.map((r: any) => (
                       <tr key={r._id || r.id} className="border-b hover:bg-muted/30">
                         <td className="p-3 font-medium">{r.studentName}</td>
                         <td className="p-3">

@@ -10,12 +10,17 @@ const __dirname = dirname(__filename);
 
 // Load .env from project root (parent directory of backend/)
 const envPath = path.resolve(__dirname, "..", ".env");
-console.log("Loading .env from:", envPath);
+const isDev = process.env.NODE_ENV !== "production";
+if (isDev) {
+  console.log("Loading .env from:", envPath);
+}
 dotenv.config({ path: envPath });
 
-console.log("Loaded MONGODB_URI =", process.env.MONGODB_URI ? "set" : "missing");
-console.log("Loaded OPENAI_API_KEY =", process.env.OPENAI_API_KEY ? "set" : "missing");
-console.log("Loaded HF_API_TOKEN =", process.env.HF_API_TOKEN ? "set" : "missing");
+if (isDev) {
+  console.log("Loaded MONGODB_URI =", process.env.MONGODB_URI ? "set" : "missing");
+  console.log("Loaded OPENAI_API_KEY =", process.env.OPENAI_API_KEY ? "set" : "missing");
+  console.log("Loaded HF_API_TOKEN =", process.env.HF_API_TOKEN ? "set" : "missing");
+}
 
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
@@ -130,8 +135,9 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      if (isDev && capturedJsonResponse) {
+        const serialized = JSON.stringify(capturedJsonResponse);
+        logLine += ` :: ${serialized.length > 2000 ? serialized.slice(0, 2000) + "…" : serialized}`;
       }
 
       log(logLine);

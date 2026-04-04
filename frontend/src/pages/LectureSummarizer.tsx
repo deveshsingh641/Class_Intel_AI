@@ -52,7 +52,7 @@ export default function LectureSummarizer() {
     };
   }, []);
 
-  const { data: lectures = [], isError: lecturesError } = useQuery({
+  const { data: lecturesRaw = [], isError: lecturesError } = useQuery({
     queryKey: ["/api/lectures"],
     queryFn: async () => {
       const res = await fetch(`${API}/api/lectures`, { headers: getHeaders() });
@@ -63,6 +63,8 @@ export default function LectureSummarizer() {
       return res.json();
     },
   });
+
+  const lectures = Array.isArray(lecturesRaw) ? lecturesRaw : [];
 
   const summarizeMutation = useMutation({
     mutationFn: async () => {
@@ -266,7 +268,7 @@ export default function LectureSummarizer() {
           {isTeacher ? "Your Lectures" : "Available Lectures"}
         </h2>
 
-        {(lectures as any[]).length === 0 ? (
+        {lectures.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
               <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -275,7 +277,7 @@ export default function LectureSummarizer() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {(lectures as any[]).map((lecture: any) => {
+            {lectures.map((lecture: any) => {
               const isExpanded = expandedLecture === (lecture._id || lecture.id);
               return (
                 <Card key={lecture._id || lecture.id} className="hover:shadow-md transition-shadow">

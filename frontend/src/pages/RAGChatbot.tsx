@@ -75,14 +75,22 @@ function ChatPanel() {
 
   // Load history on first render
   useEffect(() => {
-    if ((history as any[]).length > 0 && messages.length === 0) {
-      const loaded = (history as any[]).reverse().flatMap((h: any) => [
-        { role: "user", content: h.question },
-        { role: "assistant", content: h.answer, sources: h.sources || [] },
-      ]);
-      setMessages(loaded.slice(-20)); // Last 10 conversations
+    const historyList = Array.isArray(history) ? history : [];
+    if (historyList.length > 0 && messages.length === 0) {
+      const loaded = historyList
+        .slice()
+        .reverse()
+        .flatMap((h: any) => [
+          { role: "user", content: h.question },
+          {
+            role: "assistant",
+            content: h.answer,
+            sources: Array.isArray(h.sources) ? h.sources : [],
+          },
+        ]);
+      setMessages(loaded.slice(-20));
     }
-  }, [history]);
+  }, [history, messages.length]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -334,13 +342,15 @@ function DocumentList() {
   const queryClient = useQueryClient();
   const isTeacher = user?.role === "teacher" || user?.role === "admin";
 
-  const { data: documents = [] } = useQuery({
+  const { data: documentsRaw = [] } = useQuery({
     queryKey: ["/api/rag/documents"],
     queryFn: async () => {
       const res = await fetch(`${API}/api/rag/documents`, { headers: getHeaders() });
       return res.json();
     },
   });
+
+  const documents = Array.isArray(documentsRaw) ? documentsRaw : [];
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -362,17 +372,17 @@ function DocumentList() {
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <BookOpen className="h-4 w-4" /> Knowledge Base
-          <Badge variant="secondary" className="ml-auto">{(documents as any[]).length}</Badge>
+          <Badge variant="secondary" className="ml-auto">{documents.length}</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {(documents as any[]).length === 0 ? (
+        {documents.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">
             No documents uploaded yet
           </p>
         ) : (
           <div className="space-y-2 max-h-[400px] overflow-y-auto">
-            {(documents as any[]).map((doc: any) => (
+            {documents.map((doc: any) => (
               <div key={doc._id || doc.id} className="flex items-center justify-between p-2 rounded border hover:bg-muted/30">
                 <div className="flex items-center gap-2 min-w-0">
                   <FileText className="h-4 w-4 text-blue-500 shrink-0" />

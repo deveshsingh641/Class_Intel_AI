@@ -47,7 +47,7 @@ function TeacherQuizView() {
   }>>([{ question: "", options: ["", "", "", ""], correctAnswer: 0, points: 10 }]);
   const [selectedQuiz, setSelectedQuiz] = useState<string | null>(null);
 
-  const { data: quizzes = [] } = useQuery({
+  const { data: quizzesRaw = [] } = useQuery({
     queryKey: ["/api/quizzes"],
     queryFn: async () => {
       const res = await fetch(`${API}/api/quizzes`, { headers: getHeaders() });
@@ -55,7 +55,7 @@ function TeacherQuizView() {
     },
   });
 
-  const { data: attempts = [] } = useQuery({
+  const { data: attemptsRaw = [] } = useQuery({
     queryKey: ["/api/quizzes/attempts", selectedQuiz],
     queryFn: async () => {
       if (!selectedQuiz) return [];
@@ -64,6 +64,9 @@ function TeacherQuizView() {
     },
     enabled: !!selectedQuiz,
   });
+
+  const quizzes = Array.isArray(quizzesRaw) ? quizzesRaw : [];
+  const attempts = Array.isArray(attemptsRaw) ? attemptsRaw : [];
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -121,7 +124,7 @@ function TeacherQuizView() {
     }));
   };
 
-  const flaggedAttempts = (attempts as any[]).filter((a: any) => a.isFlagged);
+  const flaggedAttempts = attempts.filter((a: any) => a.isFlagged);
 
   return (
     <div className="container mx-auto p-4 space-y-6">
@@ -221,7 +224,7 @@ function TeacherQuizView() {
 
       {/* Quiz List */}
       <div className="grid gap-4">
-        {(quizzes as any[]).length === 0 ? (
+        {quizzes.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
               <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -229,7 +232,7 @@ function TeacherQuizView() {
             </CardContent>
           </Card>
         ) : (
-          (quizzes as any[]).map((quiz: any) => (
+          quizzes.map((quiz: any) => (
             <Card key={quiz._id || quiz.id} className={selectedQuiz === (quiz._id || quiz.id) ? "ring-2 ring-primary" : ""}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -283,7 +286,7 @@ function TeacherQuizView() {
             )}
           </CardHeader>
           <CardContent>
-            {(attempts as any[]).length === 0 ? (
+            {attempts.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No attempts yet</p>
             ) : (
               <div className="overflow-x-auto">
@@ -300,7 +303,7 @@ function TeacherQuizView() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(attempts as any[]).map((a: any) => (
+                    {attempts.map((a: any) => (
                       <tr key={a._id || a.id} className={`border-b ${a.isFlagged ? "bg-red-50 dark:bg-red-500/10" : ""}`}>
                         <td className="p-3 font-medium">{a.studentName}</td>
                         <td className="p-3">{a.score}/{a.totalPoints}</td>
@@ -364,13 +367,15 @@ function StudentQuizView() {
   const [quizResult, setQuizResult] = useState<any>(null);
   const timerRef = useRef<any>(null);
 
-  const { data: quizzes = [] } = useQuery({
+  const { data: quizzesRaw = [] } = useQuery({
     queryKey: ["/api/quizzes"],
     queryFn: async () => {
       const res = await fetch(`${API}/api/quizzes`, { headers: getHeaders() });
       return res.json();
     },
   });
+
+  const quizzes = Array.isArray(quizzesRaw) ? quizzesRaw : [];
 
   // Anti-cheating: track tab switches
   useEffect(() => {

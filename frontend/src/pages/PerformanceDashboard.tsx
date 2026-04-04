@@ -278,7 +278,7 @@ function MetricBar({ label, value }: { label: string; value: number }) {
 // ─── Teacher View: All Students Performance ─────────────────────────
 
 function TeacherPerformanceView() {
-  const { data: performances = [] } = useQuery({
+  const { data: performancesRaw = [] } = useQuery({
     queryKey: ["/api/performance/all"],
     queryFn: async () => {
       const res = await fetch(`${API}/api/performance/all`, { headers: getHeaders() });
@@ -290,9 +290,11 @@ function TeacherPerformanceView() {
     },
   });
 
+  const performances = Array.isArray(performancesRaw) ? performancesRaw : [];
+
   const gradeDistribution = useMemo(() => {
     const dist: Record<string, number> = {};
-    (performances as any[]).forEach((p: any) => {
+    performances.forEach((p: any) => {
       dist[p.predictedGrade] = (dist[p.predictedGrade] || 0) + 1;
     });
     return Object.entries(dist).map(([grade, count]) => ({ grade, count }));
@@ -303,7 +305,7 @@ function TeacherPerformanceView() {
     "C": "#eab308", "D": "#f97316", "F": "#ef4444",
   };
 
-  const highRisk = (performances as any[]).filter((p: any) => p.riskLevel === "high");
+  const highRisk = performances.filter((p: any) => p.riskLevel === "high");
 
   return (
     <div className="container mx-auto p-4 space-y-6">
@@ -320,7 +322,7 @@ function TeacherPerformanceView() {
         <Card className="border-l-4 border-l-blue-500">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Total Students Analyzed</p>
-            <p className="text-3xl font-bold">{(performances as any[]).length}</p>
+            <p className="text-3xl font-bold">{performances.length}</p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-red-500">
@@ -333,8 +335,11 @@ function TeacherPerformanceView() {
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Average Attendance</p>
             <p className="text-3xl font-bold">
-              {(performances as any[]).length > 0
-                ? Math.round((performances as any[]).reduce((s: number, p: any) => s + (p.attendance || 0), 0) / (performances as any[]).length)
+              {performances.length > 0
+                ? Math.round(
+                    performances.reduce((s: number, p: any) => s + (p.attendance || 0), 0) /
+                      performances.length
+                  )
                 : 0}%
             </p>
           </CardContent>
@@ -371,7 +376,7 @@ function TeacherPerformanceView() {
           <CardTitle>All Students</CardTitle>
         </CardHeader>
         <CardContent>
-          {(performances as any[]).length === 0 ? (
+          {performances.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No performance data yet. Students need to use the system first.</p>
           ) : (
             <div className="overflow-x-auto">
@@ -388,7 +393,7 @@ function TeacherPerformanceView() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(performances as any[]).map((p: any) => (
+                  {performances.map((p: any) => (
                     <tr key={p._id || p.id} className={`border-b ${p.riskLevel === "high" ? "bg-red-50 dark:bg-red-500/10" : ""}`}>
                       <td className="p-3 font-medium">{p.studentName}</td>
                       <td className="p-3">{p.attendance}%</td>

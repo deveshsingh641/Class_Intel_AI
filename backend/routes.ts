@@ -59,7 +59,12 @@ if (!JWT_SECRET) {
   throw new Error("SESSION_SECRET must be set in production");
 }
 
-console.log("✅ JWT_SECRET loaded from SESSION_SECRET:", rawJwtSecret ? "from .env ✓" : "⚠️ random fallback (will change on restart!)");
+if (process.env.NODE_ENV !== "production") {
+  console.log(
+    "✅ JWT_SECRET loaded from SESSION_SECRET:",
+    rawJwtSecret ? "from .env ✓" : "⚠️ random fallback (will change on restart!)"
+  );
+}
 
 const revokedTokenJtis = new Map<string, number>();
 
@@ -488,8 +493,10 @@ export async function registerRoutes(
         { expiresIn: "7d" }
       );
 
-      console.log("✅ Login successful for:", user.email);
-      console.log("✅ Token created with exp: 7d, jti:", jti);
+      if (process.env.NODE_ENV !== "production") {
+        console.log("✅ Login successful for:", user.email);
+        console.log("✅ Token created with exp: 7d, jti:", jti);
+      }
 
       res.json({
         token,
@@ -1373,7 +1380,9 @@ export async function registerRoutes(
         doubt: req.body.doubt && req.body.doubt.trim() ? req.body.doubt.trim() : undefined,
       };
       
-      console.log("Feedback submission request:", { body, user: req.user });
+      if (process.env.NODE_ENV !== "production") {
+        console.log("Feedback submission request:", { body, user: req.user });
+      }
       const data = insertFeedbackSchema.parse(body);
       const studentId = req.user?.id || (req.user as any)?._id || (req.user as any)?.userId;
       if (!studentId) {
