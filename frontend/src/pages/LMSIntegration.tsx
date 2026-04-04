@@ -381,7 +381,7 @@ Jane Smith,jane@college.edu,IT,teacher
 // ─── Recent Import History ──────────────────────────────────────────
 
 function ImportHistory() {
-  const { data: teachers = [] } = useQuery({
+  const { data: teachersRaw = [] } = useQuery({
     queryKey: ["/api/teachers"],
     queryFn: async () => {
       const res = await fetch(`${API}/api/teachers`, { headers: getHeaders() });
@@ -389,7 +389,7 @@ function ImportHistory() {
     },
   });
 
-  const { data: users = [] } = useQuery({
+  const { data: usersRaw = [] } = useQuery({
     queryKey: ["/api/admin/users"],
     queryFn: async () => {
       try {
@@ -402,9 +402,16 @@ function ImportHistory() {
     },
   });
 
+  const teachers = Array.isArray(teachersRaw) ? teachersRaw : [];
+  const users = Array.isArray(usersRaw)
+    ? usersRaw
+    : (usersRaw && typeof usersRaw === "object" && Array.isArray((usersRaw as any).items)
+      ? (usersRaw as any).items
+      : []);
+
   const teacherCount = (teachers as any[]).length;
-  const studentCount = (users as any[]).filter((u: any) => u.role === "student").length;
-  const teacherUserCount = (users as any[]).filter((u: any) => u.role === "teacher").length;
+  const studentCount = (users as any[]).filter((u: any) => u?.role === "student").length;
+  const teacherUserCount = (users as any[]).filter((u: any) => u?.role === "teacher").length;
 
   return (
     <Card>
