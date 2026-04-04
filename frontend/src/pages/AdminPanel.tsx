@@ -26,9 +26,12 @@ export default function AdminPanel() {
   const [selectedIntelTeacherId, setSelectedIntelTeacherId] = useState<string | "">("");
   const [overdueTeacherFilter, setOverdueTeacherFilter] = useState<string>("all");
 
-  const { data: teachers = [], isLoading, error } = useQuery<Teacher[]>({
+  const teachersQuery = useQuery<Teacher[]>({
     queryKey: ["/api/teachers"],
   });
+  const teachers: Teacher[] = Array.isArray(teachersQuery.data) ? teachersQuery.data : [];
+  const isLoading = teachersQuery.isLoading;
+  const error = teachersQuery.error;
 
   // Intelligence tab queries
   const { data: aiHealth } = useQuery<{ status: string }>({
@@ -50,7 +53,7 @@ export default function AdminPanel() {
   });
   const aiOnline = aiHealth?.status === "healthy";
 
-  const { data: overdueDoubts = [] } = useQuery<{
+  const overdueDoubtsQuery = useQuery<{
     id: string;
     teacherId: string;
     studentName: string;
@@ -63,6 +66,7 @@ export default function AdminPanel() {
   }[]>({
     queryKey: [`/api/admin/doubts/overdue?days=${slaDays}`],
   });
+  const overdueDoubts = Array.isArray(overdueDoubtsQuery.data) ? overdueDoubtsQuery.data : [];
 
   type FlaggedFeedback = {
     id: string;
@@ -83,9 +87,10 @@ export default function AdminPanel() {
     };
   };
 
-  const { data: flaggedFeedback = [] } = useQuery<FlaggedFeedback[]>({
+  const flaggedFeedbackQuery = useQuery<FlaggedFeedback[]>({
     queryKey: ["/api/admin/feedback/flagged"],
   });
+  const flaggedFeedback = Array.isArray(flaggedFeedbackQuery.data) ? flaggedFeedbackQuery.data : [];
 
   const overdueDepartments = useMemo(
     () =>

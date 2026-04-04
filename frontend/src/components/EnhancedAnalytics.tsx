@@ -22,9 +22,11 @@ import type { Teacher } from "@shared/schema";
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d"];
 
 export function EnhancedAnalytics({ className }: { className?: string }) {
-  const { data: teachers = [], isLoading } = useQuery<Teacher[]>({
+  const teachersQuery = useQuery<Teacher[]>({
     queryKey: ["/api/teachers"],
   });
+  const teachers: Teacher[] = Array.isArray(teachersQuery.data) ? teachersQuery.data : [];
+  const isLoading = teachersQuery.isLoading;
 
   if (isLoading) {
     return (

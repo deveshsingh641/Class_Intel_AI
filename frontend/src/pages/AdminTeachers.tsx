@@ -40,9 +40,12 @@ export default function AdminTeachers() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [teacherToDelete, setTeacherToDelete] = useState<Teacher | null>(null);
 
-  const { data: teachers = [], isLoading, error } = useQuery<Teacher[]>({
+  const teachersQuery = useQuery<Teacher[]>({
     queryKey: ["/api/teachers"],
   });
+  const teachers: Teacher[] = Array.isArray(teachersQuery.data) ? teachersQuery.data : [];
+  const isLoading = teachersQuery.isLoading;
+  const error = teachersQuery.error;
 
   useEffect(() => {
     if (error) {
