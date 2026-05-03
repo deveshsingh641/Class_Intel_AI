@@ -73,12 +73,17 @@ export function useMongoDBHealth(enabled = true, intervalMs = 30000) {
           setConsecutiveFailures(prev => prev + 1);
         }
       } catch (error) {
-        const message =
-          error && typeof error === 'object' && (error as any).name === 'AbortError'
-            ? `Timed out contacting the backend. If you're using Render free tier, wait ~30s for it to wake up and refresh.`
-            : error instanceof Error
-              ? error.message
-              : 'Unknown error';
+        const errorName =
+          error && typeof error === 'object' && typeof (error as any).name === 'string'
+            ? String((error as any).name)
+            : '';
+        const isTimeout = errorName === 'AbortError' || errorName === 'TimeoutError';
+
+        const message = isTimeout
+          ? `Timed out after ${Math.ceil(timeoutMs / 1000)}s contacting the backend. If you're using Render free tier, it may be waking up—wait ~30s and refresh.`
+          : error instanceof Error
+            ? error.message
+            : 'Unknown error';
         setHealth({
           status: 'error',
           mongodb: 'disconnected',

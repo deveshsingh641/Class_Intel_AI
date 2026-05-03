@@ -18,6 +18,17 @@ const LOCAL_MONGODB_URI =
 
 let isConnected = false;
 
+function parsePositiveInt(value: unknown, fallback: number) {
+  const n = typeof value === "string" ? parseInt(value, 10) : NaN;
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return n;
+}
+
+// Prevent Mongoose from buffering queries when the database is down.
+// Buffering makes requests (like login/health checks) hang for ~30s+.
+mongoose.set("bufferCommands", false);
+mongoose.set("bufferTimeoutMS", 0);
+
 export async function connectDb() {
   if (isConnected) return;
 
@@ -48,8 +59,24 @@ export async function connectDb() {
   for (let index = 0; index < attemptedUris.length; index += 1) {
     const uri = attemptedUris[index];
     try {
+      const serverSelectionTimeoutMS = parsePositiveInt(
+        process.env.MONGODB_SERVER_SELECTION_TIMEOUT_MS,
+        isProduction ? 15000 : 5000,
+      );
+      const connectTimeoutMS = parsePositiveInt(
+        process.env.MONGODB_CONNECT_TIMEOUT_MS,
+        isProduction ? 15000 : 5000,
+      );
+      const socketTimeoutMS = parsePositiveInt(
+        process.env.MONGODB_SOCKET_TIMEOUT_MS,
+        45000,
+      );
+
       await mongoose.connect(uri, {
         dbName: process.env.MONGODB_DB || undefined,
+        serverSelectionTimeoutMS,
+        connectTimeoutMS,
+        socketTimeoutMS,
       });
       isConnected = true;
 

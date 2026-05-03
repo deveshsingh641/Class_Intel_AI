@@ -8,6 +8,7 @@ import { useMongoDBHealth } from '@/hooks/useMongoDBHealth';
  */
 export function DatabaseStatusAlert() {
   const { health, isConnected, hasErrors } = useMongoDBHealth(true, 30000);
+  const isProd = import.meta.env.PROD;
 
   if (isConnected) {
     return null; // No alert if everything is fine
@@ -27,7 +28,13 @@ export function DatabaseStatusAlert() {
               <li>Data directory permissions issue</li>
             </ul>
             <p className="mt-3 text-xs font-semibold">
-              💡 Run <code className="bg-red-100 dark:bg-red-900 px-1 rounded">npm run dev</code> to restart
+              💡 {isProd ? (
+                <span>Backend may be sleeping. Wait ~30s and refresh.</span>
+              ) : (
+                <span>
+                  Run <code className="bg-red-100 dark:bg-red-900 px-1 rounded">npm run dev</code> to restart
+                </span>
+              )}
             </p>
             {health.error && (
               <p className="text-xs mt-1">

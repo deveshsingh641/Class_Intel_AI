@@ -152,9 +152,8 @@ app.use((req, res, next) => {
     await connectDbWithRetry();
 
     // Seed database only when explicitly enabled (avoid slowing down cold starts)
-    const shouldSeed =
-      process.env.NODE_ENV !== "production" ||
-      process.env.SEED_ON_STARTUP === "true";
+    // Run manually via `npm --prefix backend run db:seed` or set `SEED_ON_STARTUP=true`.
+    const shouldSeed = process.env.SEED_ON_STARTUP === "true";
     if (shouldSeed) {
       try {
         const { seed } = await import("./seed");
