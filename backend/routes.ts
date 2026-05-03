@@ -414,8 +414,15 @@ export async function registerRoutes(
       if (!teacherId || !question?.trim()) {
         return res.status(400).json({ error: "Teacher ID and question are required" });
       }
+
+      // Ensure the teacherId actually exists so doubts don't become "orphaned"
+      const teacher = await storage.getTeacher(teacherId.trim());
+      if (!teacher) {
+        return res.status(400).json({ error: "Invalid teacherId" });
+      }
+
       const doubt = await storage.createDoubt({
-        teacherId,
+        teacherId: teacher.id,
         studentId: req.user!.id,
         studentName: req.user!.name,
         question: question.trim(),
@@ -439,18 +446,42 @@ export async function registerRoutes(
 
   app.get("/api/doubts/teacher", authenticateToken, requireRole("teacher"), async (req: AuthRequest, res) => {
     try {
-      // Resolve the actual teacher profile (User ID ≠ Teacher ID)
-      const teacherRow =
-        (await storage.getTeacher(req.user!.id)) ||
-        (await storage.getTeacherByName(req.user!.name)) ||
-        (await storage.getTeacherByLooseName(req.user!.name));
-      if (!teacherRow) {
+      // Resolve all teacher profiles that could correspond to this teacher account.
+      // This avoids missing doubts if there are duplicate/misaligned teacher profiles
+      // (e.g., name variations, multiple departments, legacy data).
+      const teacherIds = new Set<string>();
+
+      const directTeacher = await storage.getTeacher(req.user!.id);
+      if (directTeacher?.id) teacherIds.add(directTeacher.id);
+
+      const normalized = (req.user!.name || "").trim().replace(/\s+/g, " ");
+      if (normalized) {
+        const escaped = normalized
+          .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+          .replace(/\s+/g, "\\s+");
+
+        const matches = await TeacherModel.find({
+          name: { $regex: `^${escaped}$`, $options: "i" },
+        })
+          .select("_id")
+          .lean();
+
+        for (const t of matches as any[]) {
+          const id = (t?._id ?? t?.id)?.toString?.() ?? (t?._id ?? t?.id);
+          if (id) teacherIds.add(String(id));
+        }
+      }
+
+      if (teacherIds.size === 0) {
         return res.status(404).json({ error: "No teacher profile linked to your account" });
       }
-      const doubts = await storage.getDoubtsByTeacher(teacherRow.id);
-      const sorted = doubts
-        .map((d) => ({ ...d, teacherName: undefined }))
-        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
+      const batches = await Promise.all(Array.from(teacherIds).map((id) => storage.getDoubtsByTeacher(id)));
+      const merged = batches.flat();
+      const deduped = Array.from(new Map(merged.map((d: any) => [d.id || d._id, d])).values());
+      const sorted = deduped
+        .map((d: any) => ({ ...d, teacherName: undefined }))
+        .sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
       res.json(sorted);
     } catch (error) {
       console.error("Get teacher doubts error:", error);

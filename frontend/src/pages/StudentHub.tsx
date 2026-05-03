@@ -429,6 +429,8 @@ function DoubtsTab() {
     queryKey: ["/api/teachers"],
   });
 
+  const teacherKey = (t: any) => (t?.id ?? t?._id) as string | undefined;
+
   const askDoubt = useMutation({
     mutationFn: async () => {
       const res = await fetch(`${API}/api/doubts`, {
@@ -474,7 +476,9 @@ function DoubtsTab() {
           >
             <option value="">Select a teacher...</option>
             {teachers.map((t: any) => (
-              <option key={t._id} value={t._id}>{t.name} — {t.subject || t.department}</option>
+              <option key={teacherKey(t) || t.name} value={teacherKey(t) || ""}>
+                {t.name} — {t.subject || t.department}
+              </option>
             ))}
           </select>
           <div className="flex gap-2">
@@ -532,7 +536,7 @@ function DoubtsTab() {
                 <div className="flex items-center gap-2 mt-2">
                   <Badge variant="outline" className="text-[10px] gap-1">
                     <Users className="h-2.5 w-2.5" />
-                    {teachers.find((t: any) => t._id === d.teacherId)?.name || "Unknown"}
+                    {teachers.find((t: any) => teacherKey(t) === d.teacherId)?.name || "Unknown"}
                   </Badge>
                   <span className="text-[10px] text-muted-foreground">
                     {d.createdAt ? new Date(d.createdAt).toLocaleDateString() : ""}
@@ -563,7 +567,7 @@ function DoubtsTab() {
                   </div>
                 )}
                 <p className="text-[10px] text-muted-foreground mt-2">
-                  By: {teachers.find((t: any) => t._id === d.teacherId)?.name || "Unknown"}
+                  By: {teachers.find((t: any) => teacherKey(t) === d.teacherId)?.name || "Unknown"}
                 </p>
               </div>
             ))}
