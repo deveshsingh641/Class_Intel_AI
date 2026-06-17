@@ -14,7 +14,7 @@ import { StarRating } from "./StarRating";
 import { FeedbackTemplates } from "./FeedbackTemplates";
 import { Confetti } from "./Confetti";
 import { BookOpen, Mic, MicOff, ShieldAlert } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, withApiBase } from "@/lib/queryClient";
 import { useToxicDetection } from "@/hooks/useToxicDetection";
 import { VoiceFeedback } from "./VoiceFeedback";
 
@@ -66,7 +66,9 @@ export function FeedbackForm({ teacher, open, onOpenChange, onSubmit, isSubmitti
 
     async function checkTranscription() {
       try {
-        const res = await fetch("/api/feedback/transcribe-enabled");
+        const res = await fetch(withApiBase("/api/feedback/transcribe-enabled"), {
+          credentials: "include",
+        });
         if (!res.ok) return;
         const data = (await res.json()) as { enabled?: boolean };
         if (!cancelled) {
@@ -97,10 +99,11 @@ export function FeedbackForm({ teacher, open, onOpenChange, onSubmit, isSubmitti
       formData.append("audio", blob, "feedback.webm");
 
       const token = localStorage.getItem("token");
-      const res = await fetch("/api/feedback/transcribe", {
+      const res = await fetch(withApiBase("/api/feedback/transcribe"), {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         body: formData,
+        credentials: "include",
       });
 
       if (!res.ok) {

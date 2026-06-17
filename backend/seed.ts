@@ -1,9 +1,9 @@
 import { connectDb } from "./db";
 import { storage } from "./storage";
+import bcrypt from "bcryptjs";
+import { UserModel } from "@shared/schema";
 
-// ═══════════════════════════════════════════════════════════════
-// Real college data — update these with YOUR institution's info
-// ═══════════════════════════════════════════════════════════════
+// Real college data and institutional configuration parameters
 
 const DEPARTMENTS = [
   "Computer Science & Engineering",
@@ -61,7 +61,7 @@ async function seed() {
   try {
     await connectDb();
 
-    // ── Teachers ──────────────────────────────────────────────
+    // Teachers
     const existingTeachers = await storage.getTeachers();
     let teachers = existingTeachers;
     if (existingTeachers.length === 0) {
@@ -75,7 +75,7 @@ async function seed() {
       console.log(`  ℹ️  Found ${existingTeachers.length} existing teachers, skipping`);
     }
 
-    // ── Admin user ────────────────────────────────────────────
+    // Admin user
     const existingAdmin = await storage.getUserByEmail("admin@edu.com");
     if (!existingAdmin) {
       console.log("  Creating admin user...");
@@ -88,10 +88,30 @@ async function seed() {
       });
       console.log("  ✅ Admin user created (admin@edu.com / admin123)");
     } else {
-      console.log("  ℹ️  Admin user already exists");
+      // If the admin user exists already (e.g. from a previous run) but the
+      // password differs, reset it so the demo credentials in the UI remain valid.
+      const demoPassword = "admin123";
+      const matches = await bcrypt.compare(demoPassword, existingAdmin.password);
+      if (!matches) {
+        const hashed = await bcrypt.hash(demoPassword, 10);
+        await UserModel.updateOne(
+          { email: "admin@edu.com" },
+          {
+            $set: {
+              password: hashed,
+              role: "admin",
+              name: existingAdmin.name || "Administrator",
+              username: existingAdmin.username || "admin",
+            },
+          },
+        );
+        console.log("  🔁 Admin password reset to demo default (admin123)");
+      } else {
+        console.log("  ℹ️  Admin user already exists");
+      }
     }
 
-    // ── Demo students ─────────────────────────────────────────
+    // Demo students
     for (const student of DEMO_STUDENTS) {
       const exists = await storage.getUserByEmail(student.email);
       if (!exists) {
@@ -107,7 +127,7 @@ async function seed() {
       }
     }
 
-    // ── Demo teacher accounts (login-capable) ─────────────────
+    // Demo teacher accounts (login-capable)
     for (const t of INITIAL_TEACHERS.slice(0, 3)) {
       const email = t.name.toLowerCase().replace(/\s+/g, ".") + "@college.edu";
       const exists = await storage.getUserByEmail(email);
@@ -124,7 +144,7 @@ async function seed() {
       }
     }
 
-    // ── Sample feedback ───────────────────────────────────────
+    // Sample feedback
     if (teachers.length > 0) {
       const students = await Promise.all(
         DEMO_STUDENTS.map((s) => storage.getUserByEmail(s.email))
@@ -170,3 +190,10 @@ async function seed() {
 }
 
 export { seed };
+
+if (process.argv[1] && (process.argv[1].includes("seed.ts") || process.argv[1].includes("seed.js"))) {
+  seed().then(() => process.exit(0)).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

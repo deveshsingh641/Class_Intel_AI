@@ -1,33 +1,20 @@
-// Load environment variables FIRST
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
-
-// Get the directory of the current module
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Load .env from project root (parent directory of backend/)
-const envPath = path.resolve(__dirname, "..", ".env");
-const isDev = process.env.NODE_ENV !== "production";
-if (isDev) {
-  console.log("Loading .env from:", envPath);
-}
-dotenv.config({ path: envPath });
-
-if (isDev) {
-  console.log("Loaded MONGODB_URI =", process.env.MONGODB_URI ? "set" : "missing");
-  console.log("Loaded OPENAI_API_KEY =", process.env.OPENAI_API_KEY ? "set" : "missing");
-  console.log("Loaded HF_API_TOKEN =", process.env.HF_API_TOKEN ? "set" : "missing");
-}
-
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { registerRoutes } from "./routes";
 import { createServer } from "http";
 import fs from "fs";
 import { connectDb, disconnectDb } from "./db";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const envPath = path.resolve(__dirname, "..", ".env");
+const isDev = process.env.NODE_ENV !== "production";
+dotenv.config({ path: envPath });
 
 const app = express();
 const httpServer = createServer(app);
@@ -49,19 +36,13 @@ async function connectDbWithRetry() {
       attempt += 1;
       const message = error instanceof Error ? error.message : String(error);
 
-      console.error("Database connection failed:", message);
-      if (message.toLowerCase().includes("whitelist")) {
-        console.error(
-          "MongoDB Atlas is likely blocking this IP. Add your current public IP (or a CIDR range) to Atlas → Network Access → IP Access List.",
-        );
-      }
-
+      console.error("[server] Database connection failed:", message);
       if (isProduction) {
         throw error;
       }
 
       const waitForMs = Math.min(delayMs, 30000);
-      console.log(`Retrying database connection in ${Math.ceil(waitForMs / 1000)}s...`);
+      console.log(`[server] Retrying connection in ${Math.ceil(waitForMs / 1000)}s...`);
       await sleep(waitForMs);
       delayMs = delayMs * 2;
     }
@@ -76,8 +57,6 @@ const parsedOrigins = corsOrigin
       .filter(Boolean)
   : [];
 
-// Important: do NOT send `Access-Control-Allow-Origin: *` with `credentials: true`.
-// Browsers will block it and surface as "Failed to fetch".
 const allowAnyOrigin = parsedOrigins.length === 0 || parsedOrigins.includes("*");
 
 app.use(
@@ -103,9 +82,9 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
-if (process.env.NODE_ENV !== "production") {
+if (isDev) {
   app.get("/", (_req, res) => {
-    res.status(200).send("Backend is running. Frontend is served separately.");
+    res.status(200).send("Backend server is active.");
   });
 }
 
@@ -151,15 +130,16 @@ app.use((req, res, next) => {
   try {
     await connectDbWithRetry();
 
-    // Seed database only when explicitly enabled (avoid slowing down cold starts)
-    // Run manually via `npm --prefix backend run db:seed` or set `SEED_ON_STARTUP=true`.
-    const shouldSeed = process.env.SEED_ON_STARTUP === "true";
+    const shouldSeed =
+      process.env.SEED_ON_STARTUP === "true" ||
+      (isDev && process.env.SEED_ON_STARTUP !== "false");
+
     if (shouldSeed) {
       try {
         const { seed } = await import("./seed");
         await seed();
       } catch (seedError) {
-        console.warn("Database seeding failed or skipped:", seedError);
+        console.warn("[server] Database seeding failed:", seedError);
       }
     }
 
@@ -172,7 +152,6 @@ app.use((req, res, next) => {
       res.status(status).json({ message });
     });
 
-    // Serve built frontend from the same server in production
     if (process.env.NODE_ENV === "production") {
       const publicDir = path.resolve(process.cwd(), "dist", "public");
       const indexHtmlPath = path.join(publicDir, "index.html");
@@ -185,19 +164,14 @@ app.use((req, res, next) => {
           }),
         );
         app.get("*", (_req, res) => {
-          // HTML should not be cached aggressively so new deploys show up immediately
           res.setHeader("Cache-Control", "no-cache");
           res.sendFile(indexHtmlPath);
         });
       } else {
-        log(`Frontend build not found at ${publicDir}`, "express");
+        log(`Frontend build folder not found at ${publicDir}`, "express");
       }
     }
 
-    // Port selection:
-    // - In production hosts (Render), `PORT` is required.
-    // - In local dev, `PORT` is often used for the frontend dev server, so the backend
-    //   should prefer `BACKEND_PORT` to avoid collisions.
     const isProduction = process.env.NODE_ENV === "production";
     const desiredPort = parseInt(
       (isProduction ? process.env.PORT : undefined) ||
@@ -210,7 +184,7 @@ app.use((req, res, next) => {
     httpServer.on("error", (err: any) => {
       if (err?.code === "EADDRINUSE") {
         console.error(
-          `Backend port ${desiredPort} is already in use. Stop the process using it, or change BACKEND_PORT, then re-run npm run dev.`,
+          `[server] Port ${desiredPort} is already in use.`,
         );
         process.exit(1);
       }
@@ -221,19 +195,9 @@ app.use((req, res, next) => {
       httpServer.listen(desiredPort, "0.0.0.0", () => resolve());
     });
 
-    const url = `http://localhost:${desiredPort}`;
     log(`serving on port ${desiredPort}`);
-    console.log("");
-    console.log("╔══════════════════════════════════════╗");
-    console.log("║   🧠 ClassIntel AI is running!       ║");
-    console.log(`║   Open: ${url.padEnd(25)} ║`);
-    console.log("╚══════════════════════════════════════╝");
-    console.log("");
-    console.log(`🌐 Server URL: ${url}`);
-    console.log(`📝 Open this link in your browser: ${url}`);
-    console.log("");
   } catch (error) {
-    console.error("Fatal server error:", error);
+    console.error("[server] Fatal server error:", error);
     await disconnectDb().catch(() => {});
     process.exit(1);
   }

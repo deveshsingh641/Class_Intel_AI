@@ -10,9 +10,7 @@
  * No external AI services — just Node.js string processing and math.
  */
 
-// ═══════════════════════════════════════════════════════════════
-// TEXT PREPROCESSING
-// ═══════════════════════════════════════════════════════════════
+// Text Preprocessing
 
 const STOPWORDS = new Set([
   "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your",
@@ -46,9 +44,7 @@ function tokenize(text: string): string[] {
 }
 
 
-// ═══════════════════════════════════════════════════════════════
-// SENTIMENT ANALYSIS
-// ═══════════════════════════════════════════════════════════════
+// Sentiment Analysis
 
 /** Positive education-domain words with sentiment weights */
 const POSITIVE_EDU_WORDS: Record<string, number> = {
@@ -221,9 +217,7 @@ export function batchSentiment(texts: string[]): BatchSentimentResult {
 }
 
 
-// ═══════════════════════════════════════════════════════════════
-// TOPIC EXTRACTION
-// ═══════════════════════════════════════════════════════════════
+// Topic Extraction
 
 /** Education-domain topic clusters with associated keywords */
 const TOPIC_CLUSTERS: Record<string, { keywords: string[]; label: string; icon: string }> = {
@@ -439,9 +433,7 @@ export function batchTopicExtraction(texts: string[]): BatchTopicResult {
 }
 
 
-// ═══════════════════════════════════════════════════════════════
-// STUDENT RISK PREDICTION
-// ═══════════════════════════════════════════════════════════════
+// Student Risk Prediction
 
 const HIGH_RISK_THRESHOLD = 40;
 const MEDIUM_RISK_THRESHOLD = 65;
@@ -620,9 +612,7 @@ export function predictClassRisk(
 }
 
 
-// ═══════════════════════════════════════════════════════════════
-// SUGGESTION GENERATION
-// ═══════════════════════════════════════════════════════════════
+// Suggestion Generation
 
 /** Suggestion templates mapped to detected topics */
 const SUGGESTION_TEMPLATES: Record<string, Array<{ suggestion: string; priority: "high" | "medium" | "low"; category: string }>> = {
@@ -793,9 +783,7 @@ export function generateSuggestions(
 }
 
 
-// ═══════════════════════════════════════════════════════════════
-// FULL ANALYSIS (Sentiment + Topics combined — replaces /analyze endpoint)
-// ═══════════════════════════════════════════════════════════════
+// Combined Analysis
 
 export interface FullAnalysisResult {
   sentiment: string;

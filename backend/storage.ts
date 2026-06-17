@@ -1092,7 +1092,7 @@ export class DatabaseStorage implements IStorage {
     return rows.map((r) => withId<ChatHistory>(r));
   }
 
-  // ─── NEW 2026 AI STORAGE METHODS ──────────────────────────────────────
+  // Action items, digests, and categories
 
   async saveActionItems(teacherId: string, items: Array<{ action: string; priority: string; category: string; basedOn: string }>): Promise<ActionItem[]> {
     // Clear old pending items for this teacher

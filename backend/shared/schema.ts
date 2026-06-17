@@ -6,7 +6,7 @@ const stringId = {
   default: () => new mongoose.Types.ObjectId().toString(),
 };
 
-// ----- Schemas -----
+// Schemas
 const userSchema = new Schema(
   {
     _id: stringId,
@@ -252,7 +252,7 @@ const feedbackCategorySchema = new Schema(
   { collection: "feedback_categories" },
 );
 
-// ----- Models -----
+// Models
 export const UserModel = model("User", userSchema);
 export const TeacherModel = model("Teacher", teacherSchema);
 export const FeedbackModel = model("Feedback", feedbackSchema);
@@ -271,7 +271,7 @@ export const ActionItemModel = model("ActionItem", actionItemSchema);
 export const WeeklyDigestModel = model("WeeklyDigest", weeklyDigestSchema);
 export const FeedbackCategoryModel = model("FeedbackCategory", feedbackCategorySchema);
 
-// ─── ClassIntel AI Intelligence Schemas ────────────────────────────
+// Intelligence Schemas
 
 const topicAnalysisSchema = new Schema(
   {
@@ -356,18 +356,17 @@ export const AISuggestionModel = model("AISuggestion", aiSuggestionSchema);
 export const SentimentSnapshotModel = model("SentimentSnapshot", sentimentSnapshotSchema);
 export const AlertModel = model("Alert", alertSchema);
 
-// ─── Module 1: Face Recognition Attendance ─────────────────────────
-
-const faceRegistrationSchema = new Schema(
+// Module 1: Face Recognition Attendance
+const passcodeRegistrationSchema = new Schema(
   {
     _id: stringId,
     userId: { type: String, ref: "User", required: true },
-    faceDescriptor: { type: String, required: true }, // JSON array of 128 floats
+    passcode: { type: String, required: true },
     registeredAt: { type: Date, default: Date.now },
   },
-  { collection: "face_registrations" },
+  { collection: "passcode_registrations" },
 );
-faceRegistrationSchema.index({ userId: 1 }, { unique: true });
+passcodeRegistrationSchema.index({ userId: 1 }, { unique: true });
 
 const attendanceSessionSchema = new Schema(
   {
@@ -377,6 +376,7 @@ const attendanceSessionSchema = new Schema(
     date: { type: Date, required: true },
     startTime: { type: Date, required: true },
     endTime: { type: Date },
+    code: { type: String },
     status: { type: String, enum: ["active", "closed"], default: "active" },
     createdAt: { type: Date, default: Date.now },
   },
@@ -390,8 +390,7 @@ const attendanceRecordSchema = new Schema(
     studentId: { type: String, ref: "User", required: true },
     studentName: { type: String, required: true },
     markedAt: { type: Date, default: Date.now },
-    method: { type: String, enum: ["face", "manual", "qr"], default: "face" },
-    confidence: { type: Number, default: 0 },
+    method: { type: String, enum: ["passcode", "manual", "qr"], default: "passcode" },
     isProxy: { type: Boolean, default: false },
     proxyDetails: { type: String },
   },
@@ -399,11 +398,11 @@ const attendanceRecordSchema = new Schema(
 );
 attendanceRecordSchema.index({ sessionId: 1, studentId: 1 }, { unique: true });
 
-export const FaceRegistrationModel = model("FaceRegistration", faceRegistrationSchema);
+export const PasscodeRegistrationModel = model("PasscodeRegistration", passcodeRegistrationSchema);
 export const AttendanceSessionModel = model("AttendanceSession", attendanceSessionSchema);
 export const AttendanceRecordModel = model("AttendanceRecord", attendanceRecordSchema);
 
-// ─── Module 2: Lecture Summarizer ───────────────────────────────────
+// Module 2: Lecture Summarizer
 
 const lectureSummarySchema = new Schema(
   {
@@ -423,7 +422,7 @@ const lectureSummarySchema = new Schema(
 
 export const LectureSummaryModel = model("LectureSummary", lectureSummarySchema);
 
-// ─── Module 3: Quiz + Cheating Detection ────────────────────────────
+// Module 3: Quiz + Cheating Detection
 
 const quizSchema = new Schema(
   {
@@ -467,7 +466,7 @@ quizAttemptSchema.index({ quizId: 1, studentId: 1 }, { unique: true });
 export const QuizModel = model("Quiz", quizSchema);
 export const QuizAttemptModel = model("QuizAttempt", quizAttemptSchema);
 
-// ─── Module 4: Predictive Performance ───────────────────────────────
+// Module 4: Predictive Performance
 
 const studentPerformanceSchema = new Schema(
   {
@@ -493,7 +492,7 @@ studentPerformanceSchema.index({ studentId: 1 }, { unique: true });
 
 export const StudentPerformanceModel = model("StudentPerformance", studentPerformanceSchema);
 
-// ─── Module 5: RAG Chatbot ──────────────────────────────────────────
+// Module 5: RAG Chatbot
 
 const courseDocumentSchema = new Schema(
   {
@@ -526,7 +525,7 @@ const ragChatSchema = new Schema(
 export const CourseDocumentModel = model("CourseDocument", courseDocumentSchema);
 export const RagChatModel = model("RagChat", ragChatSchema);
 
-// ----- Types -----
+// Types
 export type User = InferSchemaType<typeof userSchema> & { id: string };
 export type InsertUser = {
   name: string;
@@ -601,7 +600,7 @@ export type AISuggestionDoc = InferSchemaType<typeof aiSuggestionSchema> & { id:
 export type SentimentSnapshotDoc = InferSchemaType<typeof sentimentSnapshotSchema> & { id: string };
 export type AlertDoc = InferSchemaType<typeof alertSchema> & { id: string };
 
-// ----- Validation Schemas -----
+// Validation Schemas
 export const signupSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
@@ -659,9 +658,9 @@ export const insertDoubtSchema = z.object({
   question: z.string().min(1),
 });
 
-// ─── New Module Types ───────────────────────────────────────────────
+// New Module Types
 
-export type FaceRegistrationDoc = InferSchemaType<typeof faceRegistrationSchema> & { id: string };
+export type PasscodeRegistrationDoc = InferSchemaType<typeof passcodeRegistrationSchema> & { id: string };
 export type AttendanceSessionDoc = InferSchemaType<typeof attendanceSessionSchema> & { id: string };
 export type AttendanceRecordDoc = InferSchemaType<typeof attendanceRecordSchema> & { id: string };
 export type LectureSummaryDoc = InferSchemaType<typeof lectureSummarySchema> & { id: string };

@@ -1,4 +1,3 @@
-// Load environment variables FIRST
 import dotenv from "dotenv";
 import path from "path";
 import mongoose from "mongoose";
@@ -8,9 +7,7 @@ if (!process.env.MONGODB_URI) {
   dotenv.config({ path: path.resolve(process.cwd(), "..", ".env") });
 }
 
-// Primary URI (may be undefined if only local MongoDB is available)
 const MONGODB_URI = process.env.MONGODB_URI || "";
-
 const LOCAL_MONGODB_URI =
   process.env.MONGODB_URI_LOCAL ||
   process.env.LOCAL_MONGODB_URI ||
@@ -24,8 +21,7 @@ function parsePositiveInt(value: unknown, fallback: number) {
   return n;
 }
 
-// Prevent Mongoose from buffering queries when the database is down.
-// Buffering makes requests (like login/health checks) hang for ~30s+.
+// Disable query buffering to prevent requests from hanging when the DB is offline.
 mongoose.set("bufferCommands", false);
 mongoose.set("bufferTimeoutMS", 0);
 
@@ -34,11 +30,9 @@ export async function connectDb() {
 
   const isProduction = process.env.NODE_ENV === "production";
 
-  // In production, never fall back to a local MongoDB instance.
-  // Hosts like Render/Vercel won't have one, and it hides the real issue (missing env var / Atlas access).
   if (isProduction && !process.env.MONGODB_URI) {
     throw new Error(
-      "MONGODB_URI must be set in production. Add it to your hosting provider environment variables (and ensure MongoDB Atlas Network Access allows your host).",
+      "MONGODB_URI environment variable is required in production.",
     );
   }
 
@@ -51,7 +45,7 @@ export async function connectDb() {
   }
 
   if (attemptedUris.length === 0) {
-    throw new Error("MONGODB_URI must be set. Did you forget to provision a MongoDB database?");
+    throw new Error("No MongoDB URI configured.");
   }
 
   let lastError: unknown;
@@ -82,9 +76,7 @@ export async function connectDb() {
 
       const isFallback = index > 0;
       if (isFallback) {
-        console.warn(
-          "[db] Connected using local fallback MongoDB URI. Atlas may be blocked by IP whitelist.",
-        );
+        console.warn("[db] Connected using local fallback MongoDB instance.");
       }
 
       return;
@@ -94,9 +86,7 @@ export async function connectDb() {
       const tryingFallbackNext = index < attemptedUris.length - 1;
       if (tryingFallbackNext) {
         const message = error instanceof Error ? error.message : String(error);
-        console.warn(
-          `[db] Primary MongoDB connection failed (${message}). Trying local MongoDB fallback...`,
-        );
+        console.warn(`[db] Primary connection failed: ${message}. Trying local fallback...`);
       }
     }
   }

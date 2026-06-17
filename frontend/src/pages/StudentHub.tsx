@@ -37,7 +37,7 @@ function getGreeting(): string {
   return "Good Evening";
 }
 
-// ── Animated Counter ─────────────────────────────────────────
+// Animated Counter
 function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string }) {
   const [display, setDisplay] = useState(0);
   useEffect(() => {
@@ -56,7 +56,7 @@ function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string
   return <>{display}{suffix}</>;
 }
 
-// ── Circular Progress ────────────────────────────────────────
+// Circular Progress
 function CircularProgress({ value, size = 80, strokeWidth = 8, color = "text-primary" }: {
   value: number; size?: number; strokeWidth?: number; color?: string;
 }) {
@@ -81,7 +81,7 @@ function CircularProgress({ value, size = 80, strokeWidth = 8, color = "text-pri
   );
 }
 
-// ── Overview Tab ─────────────────────────────────────────────
+// Overview Tab
 function OverviewTab({ stats }: { stats: any }) {
   const { user } = useAuth();
 
@@ -157,7 +157,7 @@ function OverviewTab({ stats }: { stats: any }) {
             {[
               { href: "/attendance", icon: ClipboardCheck, label: "Mark Attendance", color: "hover:border-emerald-500/50 hover:bg-emerald-500/5", iconColor: "text-emerald-500" },
               { href: "/quizzes", icon: FileText, label: "Take Quiz", color: "hover:border-green-500/50 hover:bg-green-500/5", iconColor: "text-green-500" },
-              { href: "/study-assistant", icon: Brain, label: "Study AI", color: "hover:border-teal-500/50 hover:bg-teal-500/5", iconColor: "text-teal-500" },
+              { href: "/study-assistant", icon: BookOpen, label: "Course Notes", color: "hover:border-teal-500/50 hover:bg-teal-500/5", iconColor: "text-teal-500" },
               { href: "/lectures", icon: BookOpen, label: "Lectures", color: "hover:border-cyan-500/50 hover:bg-cyan-500/5", iconColor: "text-cyan-500" },
             ].map((action) => (
               <Link key={action.href} href={action.href}>
@@ -219,9 +219,9 @@ function OverviewTab({ stats }: { stats: any }) {
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
-                <Brain className="h-3.5 w-3.5 text-white" />
+                <TrendingUp className="h-3.5 w-3.5 text-white" />
               </div>
-              AI Performance Insight
+              Performance Insight
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -266,7 +266,7 @@ function OverviewTab({ stats }: { stats: any }) {
                 <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500/10 to-emerald-500/10 flex items-center justify-center mb-3">
                   <BarChart3 className="h-8 w-8 text-muted-foreground/30" />
                 </div>
-                <p className="text-sm text-muted-foreground">Take quizzes & attend classes to unlock AI predictions</p>
+                <p className="text-sm text-muted-foreground">Take quizzes & attend classes to unlock predictions</p>
                 <Link href="/performance">
                   <Button variant="ghost" size="sm" className="mt-3 text-primary gap-1">
                     View Performance <ChevronRight className="h-3 w-3" />
@@ -305,26 +305,14 @@ function OverviewTab({ stats }: { stats: any }) {
   );
 }
 
-// ── Attendance Tab ───────────────────────────────────────────
+// Attendance Tab
 function AttendanceTab() {
   const { data: summaryData, isLoading } = useQuery<any>({
     queryKey: ["/api/attendance/my-summary"],
   });
   const summary: any[] = summaryData?.subjects || [];
 
-  const { data: simplifiiData } = useQuery<any>({
-    queryKey: [`${API}/api/simplifii/my-data`],
-    queryFn: async () => {
-      const res = await fetch(`${API}/api/simplifii/my-data`, { headers: getHeaders() });
-      if (!res.ok) return null;
-      return res.json();
-    },
-    retry: false,
-  });
-
-  const attendanceData = simplifiiData?.attendanceSummary?.length
-    ? simplifiiData.attendanceSummary
-    : summary;
+  const attendanceData = summary;
 
   if (isLoading) return <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{[1,2,3,4].map(i => <Skeleton key={i} className="h-32 rounded-2xl" />)}</div>;
 
@@ -359,15 +347,12 @@ function AttendanceTab() {
               <ClipboardCheck className="h-10 w-10 text-muted-foreground/25" />
             </div>
             <p className="font-medium text-muted-foreground">No attendance records yet</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">Mark attendance or import from your college portal</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Mark attendance to get started</p>
             <div className="flex gap-3 justify-center mt-5">
               <Link href="/attendance">
                 <Button size="sm" className="bg-gradient-to-r from-emerald-500 to-green-500 text-white border-0">
                   <ClipboardCheck className="h-4 w-4 mr-1.5" /> Mark Attendance
                 </Button>
-              </Link>
-              <Link href="/college-sync">
-                <Button size="sm" variant="outline">Import from College</Button>
               </Link>
             </div>
           </CardContent>
@@ -415,7 +400,7 @@ function AttendanceTab() {
   );
 }
 
-// ── Doubts Tab ────────────────────────────────────────────────
+// Doubts Tab
 function DoubtsTab() {
   const { toast } = useToast();
   const [question, setQuestion] = useState("");
@@ -590,7 +575,7 @@ function DoubtsTab() {
   );
 }
 
-// ── My Feedback Tab ──────────────────────────────────────────
+// My Feedback Tab
 function FeedbackTab() {
   const { data: submissions = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/feedback/my"],
@@ -677,7 +662,7 @@ function FeedbackTab() {
   );
 }
 
-// ── Teachers Tab ─────────────────────────────────────────────
+// Teachers Tab
 function TeachersTab() {
   const [search, setSearch] = useState("");
 
@@ -810,7 +795,7 @@ function TeacherMiniCard({ teacher, isFav, onToggleFav }: { teacher: any; isFav:
   );
 }
 
-// ── Main StudentHub Component ────────────────────────────────
+// Main StudentHub Component
 export default function StudentHub() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");

@@ -28,8 +28,6 @@ import LectureSummarizer from "@/pages/LectureSummarizer";
 import QuizPage from "@/pages/QuizPage";
 import PerformanceDashboard from "@/pages/PerformanceDashboard";
 import RAGChatbot from "@/pages/RAGChatbot";
-import LMSIntegration from "@/pages/LMSIntegration";
-import SimplifiiImport from "@/pages/SimplifiiImport";
 
 function ProtectedRoute({ 
   children, 
@@ -86,7 +84,7 @@ function Router() {
         {isAuthenticated ? <Redirect to="/" /> : <Signup />}
       </Route>
       
-      {/* ── Student Routes ──────────────────────────────── */}
+      {/* Student Routes */}
       <Route path="/student">
         <ProtectedRoute allowedRoles={["student"]}>
           <StudentHub />
@@ -105,7 +103,7 @@ function Router() {
         </ProtectedRoute>
       </Route>
 
-      {/* ── Teacher Routes ──────────────────────────────── */}
+      {/* Teacher Routes */}
       <Route path="/teacher/intelligence">
         <ProtectedRoute allowedRoles={["teacher", "admin"]}>
           <IntelligenceDashboard />
@@ -130,7 +128,7 @@ function Router() {
         </ProtectedRoute>
       </Route>
 
-      {/* ── Shared Module Routes (all authenticated) ──── */}
+      {/* Shared Module Routes */}
       <Route path="/attendance">
         <ProtectedRoute>
           <AttendancePage />
@@ -161,7 +159,7 @@ function Router() {
         </ProtectedRoute>
       </Route>
 
-      {/* ── Admin Routes ────────────────────────────────── */}
+      {/* Admin Routes */}
       <Route path="/admin">
         <ProtectedRoute allowedRoles={["admin"]}>
           <AdminPanel />
@@ -174,17 +172,7 @@ function Router() {
         </ProtectedRoute>
       </Route>
 
-      <Route path="/admin/lms">
-        <ProtectedRoute allowedRoles={["admin"]}>
-          <LMSIntegration />
-        </ProtectedRoute>
-      </Route>
 
-      <Route path="/college-sync">
-        <ProtectedRoute>
-          <SimplifiiImport />
-        </ProtectedRoute>
-      </Route>
 
       <Route path="/analytics/:id">
         <ProtectedRoute allowedRoles={["teacher", "admin"]}>
@@ -192,7 +180,7 @@ function Router() {
         </ProtectedRoute>
       </Route>
 
-      {/* ── Public Routes ───────────────────────────────── */}
+      {/* Public Routes */}
       <Route path="/qr-feedback/:teacherId">
         <QrFeedbackPage />
       </Route>

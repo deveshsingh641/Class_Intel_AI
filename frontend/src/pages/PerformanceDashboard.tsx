@@ -33,7 +33,7 @@ export default function PerformanceDashboard() {
   return <TeacherPerformanceView />;
 }
 
-// ─── Student Performance View ───────────────────────────────────────
+// Student Performance View
 
 function StudentPerformance() {
   const { toast } = useToast();
@@ -90,10 +90,10 @@ function StudentPerformance() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Brain className="h-8 w-8 text-primary" />
-            AI Performance Prediction
+            <TrendingUp className="h-8 w-8 text-primary" />
+            Performance Insight Dashboard
           </h1>
-          <p className="text-muted-foreground mt-1">ML-powered grade prediction based on your academic data</p>
+          <p className="text-muted-foreground mt-1">Grade and risk evaluation based on your academic data</p>
         </div>
         <Button onClick={() => predictMutation.mutate()} disabled={predictMutation.isPending} className="gap-2">
           <RefreshCw className={`h-4 w-4 ${predictMutation.isPending ? "animate-spin" : ""}`} />
@@ -105,10 +105,10 @@ function StudentPerformance() {
         <Card>
           <CardContent className="py-12 text-center space-y-4">
             <Brain className="h-16 w-16 mx-auto text-muted-foreground opacity-50" />
-            <h2 className="text-xl font-semibold">No Prediction Yet</h2>
-            <p className="text-muted-foreground">Click "Update Prediction" to generate your first AI performance analysis</p>
+            <h2 className="text-xl font-semibold">No Evaluation Yet</h2>
+            <p className="text-muted-foreground">Click "Update Prediction" to calculate your first performance analysis</p>
             <Button onClick={() => predictMutation.mutate()} disabled={predictMutation.isPending} className="gap-2">
-              <Brain className="h-4 w-4" /> Generate Prediction
+              <TrendingUp className="h-4 w-4" /> Calculate Performance
             </Button>
           </CardContent>
         </Card>
@@ -120,7 +120,7 @@ function StudentPerformance() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Predicted Grade</p>
+                    <p className="text-sm text-muted-foreground">Evaluated Grade</p>
                     <p className={`text-4xl font-bold ${gradeColor[performance.predictedGrade] || "text-primary"}`}>
                       {performance.predictedGrade}
                     </p>
@@ -208,7 +208,7 @@ function StudentPerformance() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5 text-yellow-500" /> AI Recommendations
+                  <Target className="h-5 w-5 text-yellow-500" /> Academic Recommendations
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -252,7 +252,7 @@ function StudentPerformance() {
           </Card>
 
           <p className="text-xs text-muted-foreground text-center">
-            Last predicted: {new Date(performance.predictedAt).toLocaleString()}
+            Last updated: {new Date(performance.predictedAt).toLocaleString()}
           </p>
         </>
       )}
@@ -275,7 +275,7 @@ function MetricBar({ label, value }: { label: string; value: number }) {
   );
 }
 
-// ─── Teacher View: All Students Performance ─────────────────────────
+// Teacher View: All Students Performance
 
 function TeacherPerformanceView() {
   const { data: performancesRaw = [] } = useQuery({
@@ -314,7 +314,7 @@ function TeacherPerformanceView() {
           <Users className="h-8 w-8 text-primary" />
           Student Performance Analytics
         </h1>
-        <p className="text-muted-foreground mt-1">AI-predicted grades and risk analysis for all students</p>
+        <p className="text-muted-foreground mt-1">Evaluated grades and risk analysis for all students</p>
       </div>
 
       {/* Summary Cards */}
@@ -350,7 +350,7 @@ function TeacherPerformanceView() {
       {gradeDistribution.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Predicted Grade Distribution</CardTitle>
+            <CardTitle>Evaluated Grade Distribution</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
@@ -387,7 +387,7 @@ function TeacherPerformanceView() {
                     <th className="p-3">Attendance</th>
                     <th className="p-3">Quiz Avg</th>
                     <th className="p-3">Engagement</th>
-                    <th className="p-3">Predicted Grade</th>
+                    <th className="p-3">Evaluated Grade</th>
                     <th className="p-3">Fail Prob</th>
                     <th className="p-3">Risk</th>
                   </tr>

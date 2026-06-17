@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
+import { withApiBase } from "@/lib/queryClient";
 
 interface ApiError {
   error?: string;
@@ -41,7 +42,7 @@ export default function QrFeedbackPage() {
       setSubmitting(true);
       setError(null);
 
-      const res = await fetch(`/api/qr-feedback/${teacherId}`, {
+      const res = await fetch(withApiBase(`/api/qr-feedback/${teacherId}`), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

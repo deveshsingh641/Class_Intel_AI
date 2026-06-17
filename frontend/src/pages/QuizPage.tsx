@@ -30,7 +30,7 @@ export default function QuizPage() {
   return <TeacherQuizView />;
 }
 
-// ─── Teacher Quiz Manager ───────────────────────────────────────────
+// Teacher Quiz Manager
 
 function TeacherQuizView() {
   const { toast } = useToast();
@@ -134,7 +134,7 @@ function TeacherQuizView() {
             <ClipboardList className="h-8 w-8 text-primary" />
             Quiz Management
           </h1>
-          <p className="text-muted-foreground mt-1">Create quizzes with AI-powered cheating detection</p>
+          <p className="text-muted-foreground mt-1">Create quizzes with browser proctoring statistics</p>
         </div>
         <Button onClick={() => setShowCreate(!showCreate)} className="gap-2">
           <Plus className="h-4 w-4" /> Create Quiz
@@ -353,7 +353,7 @@ function TeacherQuizView() {
   );
 }
 
-// ─── Student Quiz View ──────────────────────────────────────────────
+// Student Quiz View
 
 function StudentQuizView() {
   const { toast } = useToast();
@@ -366,6 +366,7 @@ function StudentQuizView() {
   const [rightClickAttempts, setRightClickAttempts] = useState(0);
   const [quizResult, setQuizResult] = useState<any>(null);
   const timerRef = useRef<any>(null);
+  const submitQuizRef = useRef<(() => void) | null>(null);
 
   const { data: quizzesRaw = [] } = useQuery({
     queryKey: ["/api/quizzes"],
@@ -418,14 +419,14 @@ function StudentQuizView() {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(timerRef.current);
-          submitQuiz();
+          submitQuizRef.current?.();
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timerRef.current);
-  }, [activeQuiz, timeLeft > 0]);
+  }, [activeQuiz, timeLeft]);
 
   const startQuiz = (quiz: any) => {
     setActiveQuiz(quiz);
@@ -462,6 +463,10 @@ function StudentQuizView() {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
   }, [activeQuiz, answers, tabSwitches, copyPasteAttempts, rightClickAttempts, queryClient, toast]);
+
+  useEffect(() => {
+    submitQuizRef.current = submitQuiz;
+  }, [submitQuiz]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -547,7 +552,7 @@ function StudentQuizView() {
           <ClipboardList className="h-8 w-8 text-primary" />
           Quizzes
         </h1>
-        <p className="text-muted-foreground mt-1">Take quizzes — AI monitors for fair play</p>
+        <p className="text-muted-foreground mt-1">Take quizzes — browser proctoring monitors for fair play</p>
       </div>
 
       {/* Show result if just submitted */}

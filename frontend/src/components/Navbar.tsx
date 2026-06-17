@@ -30,19 +30,18 @@ export function Navbar() {
       ? [
           { href: "/admin", label: "Dashboard", icon: BarChart3 },
           { href: "/admin/teachers", label: "Teachers", icon: GraduationCap },
-          { href: "/teacher/intelligence", label: "Intelligence", icon: Brain },
+          { href: "/teacher/intelligence", label: "Insights", icon: BarChart3 },
           { href: "/quizzes", label: "Quizzes", icon: FileText },
           { href: "/lectures", label: "Lectures", icon: BookOpen },
-          { href: "/admin/lms", label: "LMS", icon: ClipboardCheck },
         ]
       : user?.role === "teacher"
       ? [
           { href: "/teacher", label: "Dashboard", icon: BarChart3 },
-          { href: "/teacher/intelligence", label: "Intelligence", icon: Brain },
+          { href: "/teacher/intelligence", label: "Insights", icon: BarChart3 },
           { href: "/quizzes", label: "Quizzes", icon: FileText },
           { href: "/lectures", label: "Lectures", icon: BookOpen },
           { href: "/attendance", label: "Attendance", icon: ClipboardCheck },
-          { href: "/study-assistant", label: "Study AI", icon: Bot },
+          { href: "/study-assistant", label: "Course Notes", icon: BookOpen },
         ]
       : [
           { href: "/student", label: "My Hub", icon: GraduationCap },
@@ -50,7 +49,7 @@ export function Navbar() {
           { href: "/quizzes", label: "Quizzes", icon: FileText },
           { href: "/lectures", label: "Lectures", icon: BookOpen },
           { href: "/performance", label: "Performance", icon: BarChart3 },
-          { href: "/study-assistant", label: "Study AI", icon: Bot },
+          { href: "/study-assistant", label: "Course Notes", icon: BookOpen },
         ]
     : [];
 
@@ -58,8 +57,8 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full glass border-b border-border/60 shadow-sm shadow-black/5">
       <div className="container flex h-16 items-center justify-between gap-4 px-4 md:px-6">
         <Link href="/" className="flex items-center gap-2">
-          <Brain className="h-6 w-6 text-primary" />
-          <span className="font-bold text-lg hidden sm:inline-block bg-gradient-to-r from-emerald-400 via-green-400 to-teal-400 bg-clip-text text-transparent">ClassIntel AI</span>
+          <GraduationCap className="h-6 w-6 text-primary" />
+          <span className="font-bold text-lg hidden sm:inline-block bg-gradient-to-r from-emerald-400 via-green-400 to-teal-400 bg-clip-text text-transparent">ClassIntel</span>
         </Link>
 
         {isAuthenticated && (

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,8 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { getApiBaseUrl } from "@/lib/queryClient";
 import {
-  Camera, CheckCircle, XCircle, Users, Calendar,
-  Clock, Shield, AlertTriangle, Video, UserCheck,
+  CheckCircle, XCircle, Users, Calendar,
+  Clock, Shield, AlertTriangle, Key, UserCheck,
   BarChart3, Eye
 } from "lucide-react";
 
@@ -26,39 +26,25 @@ function getHeaders() {
 
 export default function AttendancePage() {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   if (user?.role === "student") return <StudentAttendance />;
   return <TeacherAttendance />;
 }
 
-// ─── Student View ───────────────────────────────────────────────────
-
+// Student View
 function StudentAttendance() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [cameraActive, setCameraActive] = useState(false);
-  const [capturing, setCapturing] = useState(false);
+  const [passcode, setPasscode] = useState("");
+  const [sessionCodes, setSessionCodes] = useState<Record<string, string>>({});
 
-  // Cleanup camera stream on unmount
-  useEffect(() => {
-    return () => {
-      if (videoRef.current?.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
-
-  const { data: faceStatus, isLoading: faceLoading } = useQuery({
-    queryKey: ["/api/attendance/face-status"],
+  const { data: passcodeStatus, isLoading: passcodeLoading } = useQuery({
+    queryKey: ["/api/attendance/passcode-status"],
     queryFn: async () => {
-      const res = await fetch(`${API}/api/attendance/face-status`, { headers: getHeaders() });
+      const res = await fetch(`${API}/api/attendance/passcode-status`, { headers: getHeaders() });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(err.error || "Failed to check face status");
+        throw new Error(err.error || "Failed to check passcode status");
       }
       return res.json();
     },
@@ -90,36 +76,32 @@ function StudentAttendance() {
 
   const sessions = Array.isArray(sessionsRaw) ? sessionsRaw : [];
 
-  const registerFaceMutation = useMutation({
-    mutationFn: async () => {
-      // Generate a simulated face descriptor (128 floats)
-      // In production, this would use face-api.js to extract real descriptors
-      const descriptor = Array.from({ length: 128 }, () => Math.random() * 2 - 1);
-      const res = await fetch(`${API}/api/attendance/register-face`, {
+  const registerPasscodeMutation = useMutation({
+    mutationFn: async (codeValue: string) => {
+      const res = await fetch(`${API}/api/attendance/register-passcode`, {
         method: "POST",
         headers: getHeaders(),
-        body: JSON.stringify({ faceDescriptor: descriptor }),
+        body: JSON.stringify({ passcode: codeValue }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Face Registered", description: "Your face has been registered for attendance." });
-      queryClient.invalidateQueries({ queryKey: ["/api/attendance/face-status"] });
-      stopCamera();
+      toast({ title: "Passcode Registered", description: "Your secondary check-in passcode has been registered." });
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance/passcode-status"] });
+      setPasscode("");
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
-      setCapturing(false);
     },
   });
 
   const markAttendanceMutation = useMutation({
-    mutationFn: async (sessionId: string) => {
+    mutationFn: async ({ sessionId, code }: { sessionId: string; code: string }) => {
       const res = await fetch(`${API}/api/attendance/mark`, {
         method: "POST",
         headers: getHeaders(),
-        body: JSON.stringify({ sessionId, method: "face", confidence: 0.85 + Math.random() * 0.14 }),
+        body: JSON.stringify({ sessionId, code }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
       return res.json();
@@ -127,52 +109,38 @@ function StudentAttendance() {
     onSuccess: () => {
       toast({ title: "Attendance Marked!", description: "Your attendance has been recorded." });
       queryClient.invalidateQueries({ queryKey: ["/api/attendance/my-summary"] });
+      setSessionCodes({});
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     },
   });
 
-  const startCamera = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 640, height: 480 } });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      setCameraActive(true);
-    } catch {
-      toast({ title: "Camera Error", description: "Could not access camera. Please allow camera permissions.", variant: "destructive" });
-    }
-  }, [toast]);
+  const handleRegisterPasscode = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passcode.trim()) return;
+    registerPasscodeMutation.mutate(passcode);
+  };
 
-  const stopCamera = useCallback(() => {
-    if (videoRef.current?.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
-      videoRef.current.srcObject = null;
+  const handleMarkAttendance = (sessionId: string) => {
+    const code = sessionCodes[sessionId] || "";
+    if (!code.trim()) {
+      toast({ title: "Verification Code Required", description: "Please enter the 6-digit session code.", variant: "destructive" });
+      return;
     }
-    setCameraActive(false);
-    setCapturing(false);
-  }, []);
-
-  const captureAndRegister = useCallback(async () => {
-    setCapturing(true);
-    // Simulate face detection delay
-    await new Promise(r => setTimeout(r, 1500));
-    registerFaceMutation.mutate();
-  }, [registerFaceMutation]);
+    markAttendanceMutation.mutate({ sessionId, code });
+  };
 
   const activeSessions = sessions.filter((s: any) => s.status === "active");
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
+    <div className="container mx-auto p-4 space-y-6 max-w-4xl">
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Camera className="h-8 w-8 text-primary" />
-          Face Attendance
+          <Key className="h-8 w-8 text-primary" />
+          Passcode Attendance
         </h1>
-        <p className="text-muted-foreground mt-1">Register your face and mark attendance using facial recognition</p>
+        <p className="text-muted-foreground mt-1">Verify your presence and check-in to classes using secure session codes</p>
       </div>
 
       {/* Attendance Summary */}
@@ -218,113 +186,109 @@ function StudentAttendance() {
         </Card>
       </div>
 
-      {/* Face Registration */}
+      {/* Passcode Configuration */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Face Registration
+            <Shield className="h-5 w-5 text-primary" />
+            Student PIN Registration
           </CardTitle>
           <CardDescription>
-            {faceStatus?.registered
-              ? "Your face is registered. You can re-register to update."
-              : "Register your face to enable facial attendance"}
+            Configure your secondary verification passcode to verify classroom attendance.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-3">
-            <Badge variant={faceStatus?.registered ? "default" : "destructive"}>
-              {faceStatus?.registered ? "Registered ✓" : "Not Registered"}
-            </Badge>
-            {faceStatus?.registeredAt && (
-              <span className="text-sm text-muted-foreground">
-                Registered on {new Date(faceStatus.registeredAt).toLocaleDateString()}
-              </span>
-            )}
-          </div>
-
-          <div className="relative bg-black rounded-lg overflow-hidden" style={{ maxWidth: 640, aspectRatio: "4/3" }}>
-            <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
-            {!cameraActive && (
-              <div className="absolute inset-0 flex items-center justify-center bg-muted/80">
-                <div className="text-center space-y-2">
-                  <Video className="h-12 w-12 mx-auto text-muted-foreground" />
-                  <p className="text-muted-foreground">Camera is off</p>
-                </div>
-              </div>
-            )}
-            {capturing && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                <div className="text-center text-white space-y-2">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto" />
-                  <p>Detecting face...</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-2">
-            {!cameraActive ? (
-              <Button onClick={startCamera} className="gap-2">
-                <Camera className="h-4 w-4" /> Start Camera
-              </Button>
+            {passcodeLoading ? (
+              <Skeleton className="h-6 w-24" />
             ) : (
-              <>
-                <Button onClick={captureAndRegister} disabled={capturing || registerFaceMutation.isPending} className="gap-2">
-                  <UserCheck className="h-4 w-4" /> {capturing ? "Detecting..." : "Register Face"}
-                </Button>
-                <Button variant="outline" onClick={stopCamera}>Stop Camera</Button>
-              </>
+              <Badge variant={passcodeStatus?.registered ? "default" : "destructive"}>
+                {passcodeStatus?.registered ? "PIN Configured ✓" : "PIN Missing"}
+              </Badge>
             )}
           </div>
+
+          <form onSubmit={handleRegisterPasscode} className="flex gap-2 max-w-sm">
+            <Input
+              type="password"
+              placeholder="Enter numeric PIN"
+              value={passcode}
+              onChange={(e) => setPasscode(e.target.value)}
+              maxLength={8}
+            />
+            <Button type="submit" disabled={registerPasscodeMutation.isPending}>
+              Register PIN
+            </Button>
+          </form>
         </CardContent>
       </Card>
 
       {/* Active Sessions - Mark Attendance */}
-      {activeSessions.length > 0 && (
-        <Card className="border-2 border-green-500/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-600">
-              <Clock className="h-5 w-5 animate-pulse" />
-              Active Sessions - Mark Attendance
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
+      <Card className="border-2 border-green-500/35">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-green-600">
+            <Clock className="h-5 w-5 animate-pulse" />
+            Active Sessions - Verify Check-In
+          </CardTitle>
+          <CardDescription>
+            Enter the 6-digit verification code displayed by your teacher to mark attendance.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {sessionsLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          ) : activeSessions.length === 0 ? (
+            <p className="text-muted-foreground text-center py-6">No active attendance sessions found.</p>
+          ) : (
+            <div className="space-y-4">
               {activeSessions.map((session: any) => (
-                <div key={session._id || session.id} className="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-500/10 border">
+                <div key={session._id || session.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg bg-green-50 dark:bg-green-500/10 border gap-4">
                   <div>
-                    <p className="font-medium">{session.subject}</p>
+                    <p className="font-semibold text-lg">{session.subject}</p>
                     <p className="text-sm text-muted-foreground">
-                      Started {new Date(session.startTime).toLocaleTimeString()}
+                      Started by {session.teacherName || "Teacher"} at {new Date(session.startTime).toLocaleTimeString()}
                     </p>
                   </div>
-                  <Button
-                    onClick={() => markAttendanceMutation.mutate(session._id || session.id)}
-                    disabled={markAttendanceMutation.isPending || !faceStatus?.registered}
-                    className="gap-2"
-                  >
-                    <CheckCircle className="h-4 w-4" /> Mark Present
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="6-digit code"
+                      className="w-32 text-center font-mono tracking-widest"
+                      maxLength={6}
+                      value={sessionCodes[session._id || session.id] || ""}
+                      onChange={(e) => setSessionCodes({
+                        ...sessionCodes,
+                        [session._id || session.id]: e.target.value
+                      })}
+                    />
+                    <Button
+                      onClick={() => handleMarkAttendance(session._id || session.id)}
+                      disabled={markAttendanceMutation.isPending}
+                      className="gap-2"
+                    >
+                      <UserCheck className="h-4 w-4" /> Check In
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
-// ─── Teacher View ───────────────────────────────────────────────────
-
+// Teacher View
 function TeacherAttendance() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [subject, setSubject] = useState("");
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
 
-  const { data: sessionsRaw = [] } = useQuery({
+  const { data: sessionsRaw = [], isLoading: sessionsLoading } = useQuery({
     queryKey: ["/api/attendance/sessions"],
     queryFn: async () => {
       const res = await fetch(`${API}/api/attendance/sessions`, { headers: getHeaders() });
@@ -336,7 +300,7 @@ function TeacherAttendance() {
     },
   });
 
-  const { data: recordsRaw = [] } = useQuery({
+  const { data: recordsRaw = [], isLoading: recordsLoading } = useQuery({
     queryKey: ["/api/attendance/records", selectedSession],
     queryFn: async () => {
       if (!selectedSession) return [];
@@ -392,19 +356,20 @@ function TeacherAttendance() {
   const closedSessions = sessions.filter((s: any) => s.status === "closed");
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
+    <div className="container mx-auto p-4 space-y-6 max-w-5xl">
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <Users className="h-8 w-8 text-primary" />
           Attendance Management
         </h1>
-        <p className="text-muted-foreground mt-1">Create sessions, track attendance with AI face recognition</p>
+        <p className="text-muted-foreground mt-1">Create sessions and track attendance using secure check-in codes</p>
       </div>
 
       {/* Create Session */}
       <Card>
         <CardHeader>
           <CardTitle>Create Attendance Session</CardTitle>
+          <CardDescription>Generate a new session with a 6-digit code for students to enter.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex gap-3">
@@ -431,15 +396,22 @@ function TeacherAttendance() {
             <CardTitle className="flex items-center gap-2 text-green-600">
               <Clock className="h-5 w-5 animate-pulse" /> Active Sessions
             </CardTitle>
+            <CardDescription>Share the 6-digit check-in code with your students.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {activeSessions.map((session: any) => (
-              <div key={session._id || session.id} className="flex items-center justify-between p-4 rounded-lg bg-green-50 dark:bg-green-500/10 border">
+              <div key={session._id || session.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg bg-green-50 dark:bg-green-500/10 border gap-4">
                 <div>
                   <p className="font-semibold text-lg">{session.subject}</p>
                   <p className="text-sm text-muted-foreground">
                     Started at {new Date(session.startTime).toLocaleTimeString()}
                   </p>
+                  <div className="mt-2">
+                    <span className="text-sm text-muted-foreground mr-2">Check-in PIN:</span>
+                    <Badge variant="default" className="text-base font-mono tracking-wider px-3 py-1 bg-emerald-600">
+                      {session.code}
+                    </Badge>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -467,9 +439,12 @@ function TeacherAttendance() {
         <Card>
           <CardHeader>
             <CardTitle>Attendance Records</CardTitle>
+            <CardDescription>Students currently marked present in this session.</CardDescription>
           </CardHeader>
           <CardContent>
-            {records.length === 0 ? (
+            {recordsLoading ? (
+              <Skeleton className="h-24 w-full" />
+            ) : records.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No attendance records yet</p>
             ) : (
               <div className="overflow-x-auto">
@@ -478,7 +453,6 @@ function TeacherAttendance() {
                     <tr className="border-b">
                       <th className="p-3">Student</th>
                       <th className="p-3">Method</th>
-                      <th className="p-3">Confidence</th>
                       <th className="p-3">Time</th>
                       <th className="p-3">Status</th>
                     </tr>
@@ -488,9 +462,8 @@ function TeacherAttendance() {
                       <tr key={r._id || r.id} className="border-b hover:bg-muted/30">
                         <td className="p-3 font-medium">{r.studentName}</td>
                         <td className="p-3">
-                          <Badge variant="outline">{r.method === "face" ? "🤖 Face" : r.method}</Badge>
+                          <Badge variant="outline">{r.method === "passcode" ? "🔑 Passcode" : r.method}</Badge>
                         </td>
-                        <td className="p-3">{(r.confidence * 100).toFixed(1)}%</td>
                         <td className="p-3 text-sm">{new Date(r.markedAt).toLocaleTimeString()}</td>
                         <td className="p-3">
                           {r.isProxy ? (
@@ -517,9 +490,12 @@ function TeacherAttendance() {
       <Card>
         <CardHeader>
           <CardTitle>Session History</CardTitle>
+          <CardDescription>Previous attendance sheets created by you.</CardDescription>
         </CardHeader>
         <CardContent>
-          {closedSessions.length === 0 ? (
+          {sessionsLoading ? (
+            <Skeleton className="h-24 w-full" />
+          ) : closedSessions.length === 0 ? (
             <p className="text-muted-foreground text-center py-4">No past sessions</p>
           ) : (
             <div className="space-y-2">
@@ -533,7 +509,10 @@ function TeacherAttendance() {
                     <p className="font-medium">{s.subject}</p>
                     <p className="text-sm text-muted-foreground">{new Date(s.date).toLocaleDateString()}</p>
                   </div>
-                  <Badge variant="secondary">Closed</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="font-mono">{s.code}</Badge>
+                    <Badge variant="secondary">Closed</Badge>
+                  </div>
                 </div>
               ))}
             </div>

@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import type { Teacher } from "@shared/schema";
+import { withApiBase } from "@/lib/queryClient";
 
 interface BulkTeacherImportProps {
   onImportComplete?: (teachers: Teacher[]) => void;
@@ -26,14 +27,22 @@ export function BulkTeacherImport({ onImportComplete }: BulkTeacherImportProps) 
       formData.append('file', file);
       
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/admin/teachers/bulk-import', {
+      const response = await fetch(withApiBase('/api/admin/teachers/bulk-import'), {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
+        credentials: "include",
       });
       
       if (!response.ok) {
-        throw new Error('Import failed');
+        let message = 'Import failed';
+        try {
+          const data = await response.json();
+          message = data?.error || data?.message || message;
+        } catch {
+          // ignore
+        }
+        throw new Error(message);
       }
       
       return response.json();
