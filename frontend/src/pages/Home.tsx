@@ -28,10 +28,6 @@ export default function Home() {
           <div className="flex flex-col items-center text-center space-y-8">
             <div className="glass-card rounded-3xl px-6 py-10 md:px-10 md:py-14 max-w-4xl w-full border border-emerald-500/20">
               <div className="flex flex-col items-center text-center space-y-8">
-                <Badge variant="outline" className="gap-1.5 px-4 py-1.5 text-sm border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
-                  <Zap className="h-3.5 w-3.5" />
-                  MERN Stack Enabled
-                </Badge>
                 <div className="rounded-full bg-gradient-to-br from-emerald-500 to-green-600 p-5 shadow-lg shadow-emerald-500/25 dark:shadow-emerald-500/40">
                   <GraduationCap className="h-14 w-14 text-white" />
                 </div>
