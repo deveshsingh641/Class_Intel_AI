@@ -610,8 +610,8 @@ export const signupSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  email: z.string().min(1, "Email or Username is required"),
+  password: z.string().min(1, "Password is required"),
 });
 
 export const insertTeacherSchema = z.object({

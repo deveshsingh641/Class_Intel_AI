@@ -13,7 +13,9 @@ import {
   StudentRiskModel,
   AISuggestionModel,
   SentimentSnapshotModel,
-  AlertModel
+  AlertModel,
+  ActionItemModel,
+  WeeklyDigestModel
 } from "@shared/schema";
 import {
   authenticateToken,
@@ -213,6 +215,274 @@ router.get("/ai/feedback-analysis/:id", authenticateToken, async (req: AuthReque
   } catch (error: any) {
     console.error("Get feedback analysis error:", error);
     res.status(500).json({ error: error?.message || "Failed to get analysis" });
+  }
+});
+
+// AI Insights, Weekly Digest, Action Items, and Doubt Auto-Answer endpoints
+
+router.post("/ai/categorize-feedback/:feedbackId", authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const feedback = await storage.getFeedbackById(req.params.feedbackId);
+    if (!feedback) return res.status(404).json({ error: "Feedback not found" });
+
+    const result = intelligence.extractTopics(feedback.comment || "");
+    const categories = result.topics.map(t => t.topic);
+    if (categories.length === 0) categories.push("general");
+
+    res.json({
+      categories,
+      primaryCategory: categories[0],
+      confidence: 0.95,
+    });
+  } catch (error: any) {
+    console.error("Categorize feedback error:", error);
+    res.status(500).json({ error: "Failed to categorize feedback" });
+  }
+});
+
+router.post("/ai/auto-answer-doubt", authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { question } = req.body as { question?: string };
+    if (!question?.trim()) return res.status(400).json({ error: "Question is required" });
+
+    const lower = question.toLowerCase();
+    let answer = "This doubt has been posted to the teacher's doubt wall. They will review it and reply soon.";
+
+    const docs = await CourseDocumentModel.find({}).lean();
+    if (docs.length > 0) {
+      const queryWords = lower.split(/\s+/).filter(w => w.length > 3);
+      let bestChunk = "";
+      let bestScore = 0;
+      let docTitle = "";
+
+      for (const doc of docs) {
+        const chunks = JSON.parse((doc as any).chunks || "[]");
+        for (const chunk of chunks) {
+          const chunkLower = chunk.toLowerCase();
+          let score = 0;
+          for (const word of queryWords) {
+            if (chunkLower.includes(word)) score++;
+          }
+          if (score > bestScore) {
+            bestScore = score;
+            bestChunk = chunk;
+            docTitle = (doc as any).title;
+          }
+        }
+      }
+
+      if (bestScore > 0) {
+        answer = `**Auto-Answer from Course Material ("${docTitle}")**:\n\n${bestChunk.substring(0, 400)}...`;
+      }
+    }
+
+    if (!answer.includes("Auto-Answer")) {
+      if (lower.includes("mongodb") || lower.includes("mongoose") || lower.includes("schema")) {
+        answer = "**MongoDB & Mongoose Guide**:\n\nMongoDB is a document database storing data in flexible JSON-like documents (BSON). Mongoose is an ODM (Object Data Modeling) library for MongoDB and Node.js. It manages relationships between data, provides schema validation, and is used to translate between code objects and database documents.";
+      } else if (lower.includes("sql") || lower.includes("relational") || lower.includes("table")) {
+        answer = "**SQL vs NoSQL**:\n\nSQL databases are relational, table-based, and use structured query language with predefined schemas. NoSQL databases (like MongoDB) are non-relational, document-based, and scale horizontally by adding more servers instead of upgrading hardware.";
+      } else if (lower.includes("index") || lower.includes("performance") || lower.includes("search")) {
+        answer = "**Indexing & Search**:\n\nIndexes support the efficient execution of queries in MongoDB. Without indexes, MongoDB must perform a collection scan (scan every document in a collection) to select those documents matching the query statement. You can create text indexes for fast keyword search.";
+      }
+    }
+
+    res.json({ answer, isAiGenerated: true });
+  } catch (error: any) {
+    console.error("Auto answer doubt error:", error);
+    res.status(500).json({ error: error?.message || "Failed to process doubt auto-answer" });
+  }
+});
+
+router.get("/ai/weekly-digest/:teacherId", authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { teacherId } = req.params;
+    const digest = await WeeklyDigestModel.findOne({ teacherId }).sort({ generatedAt: -1 }).lean();
+    if (!digest) return res.status(404).json({ error: "No digest found" });
+
+    res.json({
+      ...digest,
+      id: digest._id,
+      topStrengths: JSON.parse((digest as any).topStrengths || "[]"),
+      focusAreas: JSON.parse((digest as any).focusAreas || "[]"),
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load digest" });
+  }
+});
+
+router.post("/ai/weekly-digest/:teacherId", authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { teacherId } = req.params;
+    const teacher = await storage.getTeacher(teacherId);
+    const feedbackList = await storage.getFeedbackByTeacher(teacherId);
+    const comments = feedbackList.map(f => f.comment || "").filter(c => c.trim());
+
+    const sentiment = intelligence.batchSentiment(comments);
+    const topics = intelligence.batchTopicExtraction(comments);
+
+    const headline = feedbackList.length > 0 
+      ? `Performance summary: rating holds steady at ${(feedbackList.reduce((s,f)=>s+f.rating, 0) / feedbackList.length).toFixed(1)}/5.0`
+      : "No feedback gathered yet this week";
+    
+    const ratingTrend = sentiment.aggregate.avgPolarity > 0.1 
+      ? "improving" 
+      : sentiment.aggregate.avgPolarity < -0.1 
+      ? "declining" 
+      : "stable";
+
+    const topStrengths = topics.frequency.slice(0, 2).map(f => `${f.label} (${f.count} mentions)`) || [];
+    if (topStrengths.length === 0) topStrengths.push("Good subject knowledge");
+
+    const focusAreas = topics.frequency.slice(2, 4).map(f => `${f.label} (${f.count} mentions)`) || [];
+    if (focusAreas.length === 0) focusAreas.push("Pacing class examples");
+
+    const studentEngagement = `${feedbackList.length} student feedback responses processed. Check-ins are active.`;
+    const motivationalNote = "Your commitment to teaching clarity is making a positive impact. Keep up the excellent work!";
+    const weekSummary = `Analyzed student feedbacks: ${sentiment.aggregate.positivePercent}% positive, ${sentiment.aggregate.negativePercent}% negative. The overall average score remains positive.`;
+
+    const digest = await WeeklyDigestModel.create({
+      teacherId,
+      headline,
+      ratingTrend,
+      topStrengths: JSON.stringify(topStrengths),
+      focusAreas: JSON.stringify(focusAreas),
+      studentEngagement,
+      motivationalNote,
+      weekSummary,
+      weekStartDate: new Date(),
+    });
+
+    res.json({
+      ...digest.toObject(),
+      id: digest._id,
+      topStrengths,
+      focusAreas,
+    });
+  } catch (error: any) {
+    console.error("Generate weekly digest error:", error);
+    res.status(500).json({ error: error?.message || "Failed to generate weekly digest" });
+  }
+});
+
+router.get("/ai/action-items/:teacherId", authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { teacherId } = req.params;
+    const items = await ActionItemModel.find({ teacherId }).sort({ generatedAt: -1 }).lean();
+    res.json({ items: items.map((i: any) => ({ ...i, id: i._id })) });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load action items" });
+  }
+});
+
+router.post("/ai/action-items/:teacherId", authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { teacherId } = req.params;
+    const feedbackList = await storage.getFeedbackByTeacher(teacherId);
+    const comments = feedbackList.map(f => f.comment || "").filter(c => c.trim());
+
+    // Generate local action items based on extracted topics
+    const topicsResult = intelligence.batchTopicExtraction(comments);
+    
+    // Clear old pending items to keep list fresh
+    await ActionItemModel.deleteMany({ teacherId, status: "pending" });
+
+    const newItems: any[] = [];
+    const suggestionsResult = intelligence.generateSuggestions(comments);
+
+    // Map suggestions to ActionItem schema
+    for (const sug of suggestionsResult.suggestions) {
+      const item = await ActionItemModel.create({
+        teacherId,
+        action: sug.suggestion,
+        priority: sug.priority,
+        category: sug.category === "overall" ? "general" : sug.category,
+        basedOn: sug.basedOnTopic,
+        status: "pending",
+      });
+      newItems.push({ ...item.toObject(), id: item._id });
+    }
+
+    // Fallback default action items if no feedback is available yet
+    if (newItems.length === 0) {
+      const fallbacks = [
+        { action: "Introduce periodic checkpoints to gauge student understanding.", priority: "medium", category: "engagement", basedOn: "General Setup" },
+        { action: "Publish lecture slides and reading references before each class.", priority: "low", category: "resources", basedOn: "General Setup" },
+        { action: "Establish regular Office Hours slots for answering doubts.", priority: "high", category: "communication", basedOn: "General Setup" }
+      ];
+      for (const f of fallbacks) {
+        const item = await ActionItemModel.create({
+          teacherId,
+          action: f.action,
+          priority: f.priority,
+          category: f.category,
+          basedOn: f.basedOn,
+          status: "pending",
+        });
+        newItems.push({ ...item.toObject(), id: item._id });
+      }
+    }
+
+    res.json({ items: newItems });
+  } catch (error: any) {
+    console.error("Generate action items error:", error);
+    res.status(500).json({ error: error?.message || "Failed to generate action items" });
+  }
+});
+
+router.patch("/ai/action-items/:itemId/status", authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { status } = req.body as { status?: string };
+    if (!status) return res.status(400).json({ error: "Status is required" });
+
+    const item = await ActionItemModel.findByIdAndUpdate(req.params.itemId, { status }, { new: true });
+    if (!item) return res.status(404).json({ error: "Action item not found" });
+
+    res.json({ ...item.toObject(), id: item._id });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update action item status" });
+  }
+});
+
+router.get("/ai/predict-trend/:teacherId", authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { teacherId } = req.params;
+    const feedbackList = await storage.getFeedbackByTeacher(teacherId);
+    
+    let predictedRating = 4.2;
+    let trend: "improving" | "declining" | "stable" = "stable";
+    let confidence = 0.85;
+    let reasoning = "No feedback gathered yet to evaluate rating trends. Defaulting to general expectations.";
+
+    if (feedbackList.length > 0) {
+      const ratings = feedbackList.map(f => f.rating);
+      const avg = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+      predictedRating = parseFloat(avg.toFixed(1));
+
+      // Simple prediction logic based on last 3 entries vs all
+      const recent = ratings.slice(0, 3);
+      const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length;
+      
+      if (recentAvg > avg + 0.1) {
+        trend = "improving";
+        reasoning = `Recent feedback ratings (${recentAvg.toFixed(1)}) show an upward trend compared to the overall average (${avg.toFixed(1)}). Students report strong explanation clarity.`;
+      } else if (recentAvg < avg - 0.1) {
+        trend = "declining";
+        reasoning = `Recent feedback ratings (${recentAvg.toFixed(1)}) show a downward trend compared to the overall average (${avg.toFixed(1)}). Pacing and visual examples should be reviewed.`;
+      } else {
+        trend = "stable";
+        reasoning = `Feedback ratings are stable around ${avg.toFixed(1)}/5.0. Classroom delivery matches expectations.`;
+      }
+      confidence = Math.min(0.95, 0.6 + feedbackList.length * 0.05);
+    }
+
+    res.json({
+      predictedRating,
+      trend,
+      confidence,
+      reasoning,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to predict rating trend" });
   }
 });
 

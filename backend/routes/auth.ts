@@ -60,7 +60,7 @@ router.post("/auth/login", authRateLimiter, async (req, res) => {
   try {
     const data = loginSchema.parse(req.body);
     
-    const user = await storage.getUserByEmail(data.email);
+    const user = (await storage.getUserByEmail(data.email)) || (await storage.getUserByUsername(data.email));
     if (!user) {
       return res.status(401).json({ error: "Invalid email or password" });
     }

@@ -124,6 +124,16 @@ async function seed() {
           department: student.department,
         });
         console.log(`  ✅ Student: ${student.name} (${student.email} / student123)`);
+      } else {
+        const matches = await bcrypt.compare("student123", exists.password);
+        if (!matches) {
+          const hashed = await bcrypt.hash("student123", 10);
+          await UserModel.updateOne(
+            { email: student.email },
+            { $set: { password: hashed } }
+          );
+          console.log(`  🔁 Reset student password for: ${student.name}`);
+        }
       }
     }
 
@@ -141,6 +151,16 @@ async function seed() {
           department: t.department,
         });
         console.log(`  ✅ Teacher account: ${t.name} (${email} / teacher123)`);
+      } else {
+        const matches = await bcrypt.compare("teacher123", exists.password);
+        if (!matches) {
+          const hashed = await bcrypt.hash("teacher123", 10);
+          await UserModel.updateOne(
+            { email },
+            { $set: { password: hashed } }
+          );
+          console.log(`  🔁 Reset teacher password for: ${t.name}`);
+        }
       }
     }
 
