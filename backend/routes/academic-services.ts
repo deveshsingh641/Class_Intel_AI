@@ -274,6 +274,11 @@ router.post("/ai/reply-templates", authenticateToken, async (req: AuthRequest, r
       return res.status(400).json({ error: "Comment is required" });
     }
 
+    if (intelligence.isDoubtOrQuestion(comment)) {
+      const templates = intelligence.generateDoubtReplies(comment);
+      return res.json({ templates });
+    }
+
     const sentiment = intelligence.analyzeSentiment(comment);
     let templates = [
       "Thank you for the detailed feedback. I will look into ways to incorporate this into my future class planning.",

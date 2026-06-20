@@ -895,3 +895,112 @@ export function polishFeedback(comment: string): string {
   return polished;
 }
 
+export function isDoubtOrQuestion(text: string): boolean {
+  const clean = text.toLowerCase().trim();
+  
+  // Rule 1: Question mark
+  if (clean.includes("?")) {
+    return true;
+  }
+  
+  // Rule 2: Standard question prefixes
+  const questionWords = [
+    "how", "what", "why", "explain", "describe", "define", 
+    "where", "when", "who", "which", "can", "could", 
+    "is", "are", "do", "does", "help", "solve", "question", "doubt",
+    "please clarify", "clarify", "give me", "show me"
+  ];
+  
+  const words = clean.split(/\s+/);
+  if (words.length > 0 && questionWords.includes(words[0])) {
+    return true;
+  }
+  
+  // Rule 3: Contains common doubt phrases
+  const doubtPhrases = [
+    "how to", "what is", "why does", "difference between", 
+    "can you", "could you", "help me with", "stuck on", "i don't understand",
+    "i do not understand", "confused about", "meaning of"
+  ];
+  
+  if (doubtPhrases.some(phrase => clean.includes(phrase))) {
+    return true;
+  }
+
+  // Rule 4: Learning/academic topic context with common action words
+  const learningKeywords = ["note", "study", "formula", "concept", "algorithm", "python", "code", "syntax", "exam", "test", "quiz", "midterm", "assignment", "homework", "project", "analytics", "data", "machine learning", "regression", "lecture"];
+  const hasLearningKeyword = learningKeywords.some(kw => clean.includes(kw));
+  if (hasLearningKeyword && words.length <= 15) {
+    if (words.some(w => ["how", "what", "why", "explain", "help", "clarify", "difference", "stuck", "confused", "meaning"].includes(w))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function generateDoubtReplies(doubtText: string): string[] {
+  const clean = doubtText.toLowerCase().trim();
+  
+  const templates: string[] = [];
+
+  // Match notes / study queries
+  if (clean.includes("note") || clean.includes("notes") || clean.includes("study") || clean.includes("prepare")) {
+    templates.push(
+      "Thank you for the question. When making notes for data analytics, focus on key concepts like data cleaning, visualization, and modeling. Try summarizing the mathematical formulas and creating step-by-step guides for coding tasks.",
+      "I recommend structuring your notes by key topics (e.g., descriptive vs. inferential statistics) and keeping a list of common code snippets. We can also review note-taking strategies in our next class.",
+      "To study data analytics effectively, I suggest building practice cheat-sheets for Python/R libraries and reviewing the slide decks uploaded in the Course Documents section."
+    );
+  }
+  // Match python / code / programming / bug / error
+  else if (clean.includes("python") || clean.includes(" r ") || clean.includes("code") || clean.includes("programming") || clean.includes("syntax") || clean.includes("error") || clean.includes("bug")) {
+    templates.push(
+      "For programming or syntax issues, check the exact error message and traceback. Print intermediate values to debug where the logic fails.",
+      "Please review the sample scripts in the course resources. If you are still facing compile or runtime errors, feel free to schedule a quick screen-sharing session.",
+      "Make sure your dependencies and library versions are correctly set up. You can also paste the code snippet on the class forum for collective debugging."
+    );
+  }
+  // Match exam / test / quiz / midterm / grades
+  else if (clean.includes("exam") || clean.includes("test") || clean.includes("quiz") || clean.includes("midterm") || clean.includes("grade")) {
+    templates.push(
+      "To prepare for the upcoming assessment, focus on the practice quizzes and homework assignments. I'll also host a review session prior to the exam.",
+      "The exam will cover all topics up to the current week. Focus on core concepts, algorithms, and interpretation of results.",
+      "I recommend reviewing the lecture summaries and the self-assessment guides provided in the student portal."
+    );
+  }
+  // Match project / assignment / homework / lab / task
+  else if (clean.includes("project") || clean.includes("assignment") || clean.includes("homework") || clean.includes("task") || clean.includes("lab")) {
+    templates.push(
+      "For the project/assignment, ensure you follow the rubric criteria carefully. It is crucial to document your analysis methodology and explain your conclusions.",
+      "If you're stuck on the assignment, check the discussion board for hints, or drop by during office hours for guidance.",
+      "Make sure to submit your project codebase along with the final report. Let me know if you run into specific roadblocks."
+    );
+  }
+  // Match data / analytics / statistics / dataset
+  else if (clean.includes("data") || clean.includes("analytics") || clean.includes("stat")) {
+    templates.push(
+      "When working on data analytics tasks, start by checking for missing values, profiling the data, and selecting relevant features.",
+      "I've uploaded a supplementary guide on analytics workflows in the Course Documents. It covers basic exploratory data analysis (EDA).",
+      "Focus on understanding the practical business implications of the analytical models rather than just the mathematical formulas."
+    );
+  }
+
+  // Fallback / default academic templates if no specific topic matches
+  if (templates.length < 3) {
+    const fallbacks = [
+      "That is a great question. I recommend reviewing the relevant lecture slides and the recommended textbook chapters. We can go over this concept in detail during the next session.",
+      "To understand this topic better, try practicing the related exercises in the worksheets. Let me know if you'd like to schedule a quick call to discuss.",
+      "I will address this doubt during our next live lecture to ensure everyone is on the same page. In the meantime, try looking at the resources under the Course Documents section."
+    ];
+    
+    for (const fb of fallbacks) {
+      if (!templates.includes(fb) && templates.length < 3) {
+        templates.push(fb);
+      }
+    }
+  }
+
+  return templates.slice(0, 3);
+}
+
+
