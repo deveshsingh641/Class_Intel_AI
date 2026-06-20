@@ -243,7 +243,7 @@ router.get("/admin/doubts/overdue", authenticateToken, requireRole("admin"), asy
 
 router.get("/admin/feedback/flagged", authenticateToken, requireRole("admin"), async (_req: AuthRequest, res) => {
   try {
-    const flagged = await storage.getFlaggedFeedback(ABUSIVE_WORDS);
+    const flagged = await storage.getFeedbackFlagsDetailed();
     res.json(flagged);
   } catch (error) {
     console.error("Get flagged feedback error:", error);

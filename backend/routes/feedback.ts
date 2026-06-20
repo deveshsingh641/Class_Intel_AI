@@ -243,7 +243,7 @@ router.get("/feedback/flags", authenticateToken, requireRole("admin"), async (re
   }
 });
 
-router.post("/api/feedback/flags/:flagId/status", authenticateToken, requireRole("admin"), async (req: AuthRequest, res) => {
+router.post("/feedback/flags/:flagId/status", authenticateToken, requireRole("admin"), async (req: AuthRequest, res) => {
   try {
     const { flagId } = req.params;
     const { status } = req.body as { status?: string };

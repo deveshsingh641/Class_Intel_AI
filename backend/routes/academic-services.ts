@@ -655,6 +655,125 @@ router.get("/intelligence/student-risk", authenticateToken, requireRole("teacher
   }
 });
 
+router.get("/intelligence/risk/:teacherId", authenticateToken, requireRole("teacher", "admin"), async (req: AuthRequest, res) => {
+  try {
+    const { teacherId } = req.params;
+    const risks = await StudentRiskModel.find({ teacherId }).lean();
+    
+    const students = risks.map((r: any) => {
+      const parsedFactors = JSON.parse(r.factors || "[]");
+      const parsedRecs = JSON.parse(r.recommendations || "[]");
+      
+      const score = r.riskScore ?? 0;
+      const level = r.riskLevel || "low";
+      const color = level === "high" ? "#ef4444" : level === "medium" ? "#f59e0b" : "#10b981";
+      
+      return {
+        studentName: r.studentName,
+        studentId: r.studentId,
+        riskLevel: level,
+        riskScore: score,
+        safetyScore: 100 - score,
+        riskColor: color,
+        components: {
+          attendance: { value: r.attendance ?? 75 },
+          marks: { value: r.marks ?? 50 },
+          sentiment: { value: r.sentimentPolarity ?? 0 },
+          engagement: { value: r.engagementScore ?? 50 },
+        },
+        factors: parsedFactors,
+        recommendations: parsedRecs,
+      };
+    });
+
+    const total = students.length;
+    const high = students.filter(s => s.riskLevel === "high").length;
+    const medium = students.filter(s => s.riskLevel === "medium").length;
+    const low = students.filter(s => s.riskLevel === "low").length;
+
+    res.json({
+      students,
+      summary: {
+        total,
+        highRisk: high,
+        mediumRisk: medium,
+        lowRisk: low,
+        highRiskPercent: total > 0 ? Math.round((high / total) * 100) : 0,
+        mediumRiskPercent: total > 0 ? Math.round((medium / total) * 100) : 0,
+        lowRiskPercent: total > 0 ? Math.round((low / total) * 100) : 0,
+      }
+    });
+  } catch (error) {
+    console.error("Get risk data error:", error);
+    res.status(500).json({ error: "Failed to get risk data" });
+  }
+});
+
+router.post("/intelligence/risk/:teacherId", authenticateToken, requireRole("teacher", "admin"), async (req: AuthRequest, res) => {
+  try {
+    const { teacherId } = req.params;
+    const { students } = req.body as { students?: Array<{ name: string; attendance: number; marks: number; engagementScore?: number }> };
+    
+    if (!Array.isArray(students)) {
+      return res.status(400).json({ error: "Students list is required" });
+    }
+
+    const saved = [];
+    for (const s of students) {
+      const attendance = s.attendance ?? 75;
+      const marks = s.marks ?? 50;
+      const engagement = s.engagementScore ?? 50;
+
+      const riskScore = Math.min(100, Math.max(0, Math.round(
+        100 - (attendance * 0.35 + marks * 0.45 + engagement * 0.20)
+      )));
+      
+      const riskLevel = riskScore >= 50 ? "high" : riskScore >= 25 ? "medium" : "low";
+
+      const factors = [];
+      if (attendance < 75) {
+        factors.push({ factor: "Low Attendance", severity: "high", value: `${attendance}%` });
+      }
+      if (marks < 60) {
+        factors.push({ factor: "Low Marks", severity: marks < 45 ? "high" : "medium", value: `${marks}%` });
+      }
+      if (engagement < 50) {
+        factors.push({ factor: "Low Class Engagement", severity: "medium", value: `${engagement}%` });
+      }
+
+      const recommendations = [];
+      if (attendance < 75) recommendations.push("Schedule mandatory attendance check-in");
+      if (marks < 50) recommendations.push("Provide remedial assignments or extra tutor support");
+      if (engagement < 50) recommendations.push("Encourage student to ask questions on doubt wall");
+      if (riskLevel === "high") recommendations.push("Flag to academic advisor for intervention");
+      if (recommendations.length === 0) recommendations.push("Maintain current performance levels");
+
+      const doc = await StudentRiskModel.findOneAndUpdate(
+        { teacherId, studentName: s.name },
+        {
+          teacherId,
+          studentName: s.name,
+          riskLevel,
+          riskScore,
+          attendance,
+          marks,
+          engagementScore: engagement,
+          factors: JSON.stringify(factors),
+          recommendations: JSON.stringify(recommendations),
+          predictedAt: new Date(),
+        },
+        { upsert: true, new: true }
+      );
+      saved.push(doc);
+    }
+
+    res.status(201).json({ success: true, count: saved.length });
+  } catch (error) {
+    console.error("Predict risk error:", error);
+    res.status(500).json({ error: "Failed to predict student risk" });
+  }
+});
+
 router.get("/intelligence/alerts", authenticateToken, async (req: AuthRequest, res) => {
   try {
     const query: any = {};

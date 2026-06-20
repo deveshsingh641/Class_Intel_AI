@@ -143,13 +143,32 @@ router.get("/attendance/my-summary", authenticateToken, requireRole("student"), 
     const records = await AttendanceRecordModel.find({ studentId: req.user!.id }).lean();
     const attended = records.length;
     const allSessions = await AttendanceSessionModel.find({}).lean();
-    const total = allSessions.length;
-    const percentage = total > 0 ? Math.round((attended / total) * 100) : 75;
-
     const attendedSessionIds = records.map((r: any) => r.sessionId.toString());
 
-    const subjectMap = new Map<string, { total: number; attended: number }>();
+    // Build a map of sessions to subject names
+    const sessionToSubject = new Map<string, string>();
     for (const session of allSessions) {
+      sessionToSubject.set(session._id.toString(), (session as any).subject || "Unknown");
+    }
+
+    // Determine the subjects the student has attended at least once
+    const attendedSubjects = new Set<string>();
+    for (const rec of records) {
+      const subj = sessionToSubject.get(rec.sessionId.toString()) || "Unknown";
+      attendedSubjects.add(subj);
+    }
+
+    // Filter sessions to only those matching the student's attended subjects
+    const relevantSessions = allSessions.filter((session) => {
+      const subj = (session as any).subject || "Unknown";
+      return attendedSubjects.size === 0 || attendedSubjects.has(subj);
+    });
+
+    const total = relevantSessions.length;
+    const percentage = total > 0 ? Math.round((attended / total) * 100) : 100;
+
+    const subjectMap = new Map<string, { total: number; attended: number }>();
+    for (const session of relevantSessions) {
       const subj = (session as any).subject || "Unknown";
       if (!subjectMap.has(subj)) subjectMap.set(subj, { total: 0, attended: 0 });
       subjectMap.get(subj)!.total++;
