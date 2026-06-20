@@ -1,6 +1,10 @@
 import { Router } from "express";
 import csv from "csv-parser";
 import { Readable } from "stream";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfParse: (buffer: Buffer) => Promise<{ text: string }> = require("pdf-parse");
 import { storage } from "../storage";
 import * as intelligence from "../intelligence";
 import {
@@ -969,6 +973,51 @@ router.get("/intelligence/suggestions/:teacherId", authenticateToken, async (req
 
 // Course Documents Keyword Query
 
+// Stopwords to exclude from search scoring
+const SEARCH_STOPWORDS = new Set([
+  "the", "and", "for", "are", "that", "this", "with", "from", "have",
+  "not", "but", "what", "when", "where", "which", "how", "was", "were",
+  "been", "being", "their", "there", "they", "will", "would", "could",
+  "should", "can", "may", "might", "shall", "does", "did", "has", "had",
+  "its", "also", "into", "than", "then", "some", "any", "all", "each",
+  "you", "your", "our", "his", "her", "him", "she", "they", "them"
+]);
+
+router.post("/rag/documents/parse-file", authenticateToken, requireRole("teacher", "admin"), upload.single("file"), async (req: AuthRequest, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "File is required" });
+
+    const mime = req.file.mimetype;
+    const filename = req.file.originalname || "";
+    let extractedText = "";
+
+    if (mime === "application/pdf" || filename.toLowerCase().endsWith(".pdf")) {
+      const data = await pdfParse(req.file.buffer);
+      extractedText = data.text || "";
+    } else if (
+      mime === "text/plain" ||
+      filename.toLowerCase().endsWith(".txt") ||
+      filename.toLowerCase().endsWith(".md")
+    ) {
+      extractedText = req.file.buffer.toString("utf-8");
+    } else {
+      return res.status(400).json({ error: "Only PDF, TXT, and Markdown files are supported" });
+    }
+
+    // Normalize whitespace
+    extractedText = extractedText.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+
+    if (!extractedText || extractedText.length < 20) {
+      return res.status(422).json({ error: "Could not extract meaningful text from this file. Try a text-selectable PDF or a .txt file." });
+    }
+
+    res.json({ text: extractedText, chars: extractedText.length, words: extractedText.split(/\s+/).filter(Boolean).length });
+  } catch (error: any) {
+    console.error("File parse error:", error);
+    res.status(500).json({ error: error?.message || "Failed to parse file" });
+  }
+});
+
 router.post("/rag/documents", authenticateToken, requireRole("teacher", "admin"), async (req: AuthRequest, res) => {
   try {
     const { title, subject, content } = req.body as { title?: string; subject?: string; content?: string };
@@ -1012,6 +1061,16 @@ router.get("/rag/documents", authenticateToken, async (req: AuthRequest, res) =>
   }
 });
 
+router.get("/rag/documents/:id", authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const doc = await CourseDocumentModel.findById(req.params.id).lean();
+    if (!doc) return res.status(404).json({ error: "Document not found" });
+    res.json({ ...doc, id: (doc as any)._id });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to get document" });
+  }
+});
+
 router.delete("/rag/documents/:id", authenticateToken, requireRole("teacher", "admin"), async (req: AuthRequest, res) => {
   try {
     await CourseDocumentModel.findByIdAndDelete(req.params.id);
@@ -1027,35 +1086,52 @@ router.post("/rag/chat", authenticateToken, async (req: AuthRequest, res) => {
     if (!question?.trim()) return res.status(400).json({ error: "Question is required" });
 
     const query: any = {};
-    if (subject) query.subject = subject;
+    if (subject && subject !== "All Subjects") query.subject = subject;
     const allDocs = await CourseDocumentModel.find(query).lean();
 
-    const queryWords = question.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-    const scoredChunks: Array<{ chunk: string; score: number; docTitle: string }> = [];
+    // Improved keyword extraction: min 2 chars, remove stopwords
+    const rawWords = question.toLowerCase().split(/\s+/);
+    const queryWords = rawWords.filter(w => w.length >= 2 && !SEARCH_STOPWORDS.has(w));
+
+    const scoredChunks: Array<{ chunk: string; score: number; docTitle: string; docSubject: string }> = [];
 
     for (const doc of allDocs) {
       const chunks: string[] = JSON.parse((doc as any).chunks || "[]");
-      for (const chunk of chunks) {
+      for (let ci = 0; ci < chunks.length; ci++) {
+        const chunk = chunks[ci];
         const chunkLower = chunk.toLowerCase();
         let score = 0;
         for (const word of queryWords) {
-          if (chunkLower.includes(word)) score += 1;
+          if (chunkLower.includes(word)) {
+            score += 1;
+            // Bonus: word appears in the first 80 chars (likely a heading)
+            if (chunkLower.substring(0, 80).includes(word)) score += 0.5;
+          }
         }
         if (score > 0) {
-          scoredChunks.push({ chunk, score, docTitle: (doc as any).title });
+          scoredChunks.push({ chunk, score, docTitle: (doc as any).title, docSubject: (doc as any).subject || "General" });
         }
       }
     }
 
     scoredChunks.sort((a, b) => b.score - a.score);
-    const topChunks = scoredChunks.slice(0, 3);
+    const topChunks = scoredChunks.slice(0, 5);
+    const maxScore = queryWords.length || 1;
 
     let answer = "I couldn't find relevant information in the uploaded course materials.";
-    const sources = topChunks.map(c => ({ documentTitle: c.docTitle, chunk: c.chunk.substring(0, 200), relevanceScore: c.score }));
+    const sources = topChunks.map(c => ({
+      documentTitle: c.docTitle,
+      subject: c.docSubject,
+      chunk: c.chunk.substring(0, 250),
+      relevanceScore: Math.round((c.score / maxScore) * 100)
+    }));
 
     if (topChunks.length > 0) {
-      answer = `Local Material Match found in "${topChunks[0].docTitle}":\n\n"${topChunks[0].chunk.substring(0, 500)}..."`;
+      answer = `Found in "${topChunks[0].docTitle}":\n\n${topChunks[0].chunk.substring(0, 600)}`;
     }
+
+    // Generate study tips based on the question
+    const studyTips = intelligence.generateDoubtReplies(question.trim());
 
     await RagChatModel.create({
       userId: req.user!.id,
@@ -1065,7 +1141,7 @@ router.post("/rag/chat", authenticateToken, async (req: AuthRequest, res) => {
       subject: subject || "General",
     });
 
-    res.json({ answer, sources, documentsSearched: allDocs.length });
+    res.json({ answer, sources, studyTips, documentsSearched: allDocs.length });
   } catch (error) {
     console.error("Local search error:", error);
     res.status(500).json({ error: "Failed to search materials" });

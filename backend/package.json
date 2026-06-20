@@ -11,6 +11,7 @@
     "db:seed": "tsx seed.ts"
   },
   "dependencies": {
+    "@types/pdf-parse": "^1.1.5",
     "bcryptjs": "^3.0.3",
     "classintel": "file:..",
     "cors": "^2.8.5",
@@ -20,6 +21,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.8.3",
     "multer": "^2.0.2",
+    "pdf-parse": "^2.4.5",
     "ws": "^8.18.0",
     "zod": "^3.25.0",
     "zod-validation-error": "^3.4.0"
