@@ -348,13 +348,23 @@ router.post("/ai/categorize-feedback/:feedbackId", authenticateToken, async (req
 
 router.post("/ai/auto-answer-doubt", authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const { question } = req.body as { question?: string };
+    const { question, teacherId } = req.body as { question?: string; teacherId?: string };
     if (!question?.trim()) return res.status(400).json({ error: "Question is required" });
 
     const lower = question.toLowerCase();
     let answer = "This doubt has been posted to the teacher's doubt wall. They will review it and reply soon.";
 
-    const docs = await CourseDocumentModel.find({}).lean();
+    const query: any = {};
+    if (teacherId) {
+      const teacher = await storage.getTeacher(teacherId);
+      if (teacher) {
+        query.subject = teacher.subject;
+      } else {
+        query.teacherId = teacherId;
+      }
+    }
+
+    const docs = await CourseDocumentModel.find(query).lean();
     if (docs.length > 0) {
       const queryWords = lower.split(/\s+/).filter(w => w.length > 3);
       let bestChunk = "";
