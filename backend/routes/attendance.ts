@@ -113,13 +113,32 @@ router.post("/attendance/mark", authenticateToken, async (req: AuthRequest, res)
     const existing = await AttendanceRecordModel.findOne({ sessionId, studentId: req.user!.id }).lean();
     if (existing) return res.status(400).json({ error: "Attendance already marked" });
 
+    const ip = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").trim();
+    const isLoopback = ip === "127.0.0.1" || ip === "::1" || ip.includes("127.0.0.1") || ip.includes("localhost");
+
+    let isProxy = false;
+    let proxyDetails = "";
+
+    if (!isLoopback && ip) {
+      const duplicateIpRecord = await AttendanceRecordModel.findOne({ sessionId, proxyDetails: ip }).lean();
+      if (duplicateIpRecord) {
+        isProxy = true;
+        proxyDetails = ip;
+      } else {
+        proxyDetails = ip;
+      }
+    } else {
+      proxyDetails = ip ? `Localhost: ${ip}` : "";
+    }
+
     const record = await AttendanceRecordModel.create({
       sessionId,
       studentId: req.user!.id,
       studentName: req.user!.name,
       markedAt: new Date(),
       method: "passcode",
-      isProxy: false,
+      isProxy,
+      proxyDetails,
     });
     res.status(201).json({ ...record.toObject(), id: record._id });
   } catch (error: any) {

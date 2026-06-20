@@ -32,6 +32,119 @@ export default function QuizPage() {
 
 // Teacher Quiz Manager
 
+const DEFAULT_QUESTIONS = [
+  {
+    question: "Which of the following is true regarding the CAP Theorem in distributed databases?",
+    options: [
+      "A database can guarantee Consistency, Availability, and Partition Tolerance simultaneously.",
+      "Partition Tolerance is optional in distributed networks.",
+      "In the presence of a network partition, a system must choose between Consistency and Availability.",
+      "Consistency in CAP refers to eventual consistency."
+    ],
+    correctAnswer: 2,
+    points: 10
+  },
+  {
+    question: "In the context of database transaction isolation levels, which anomaly does Serializable isolation prevent that Repeatable Read does NOT?",
+    options: [
+      "Dirty Reads",
+      "Non-repeatable Reads",
+      "Phantom Reads",
+      "Lost Updates"
+    ],
+    correctAnswer: 2,
+    points: 10
+  },
+  {
+    question: "What is the primary purpose of a database index B-Tree node split?",
+    options: [
+      "To reduce the depth of the tree to speed up searches.",
+      "To accommodate new keys when a leaf or internal node exceeds its maximum capacity.",
+      "To rebalance the tree when one branch becomes longer than the others.",
+      "To encrypt the index keys for security."
+    ],
+    correctAnswer: 1,
+    points: 10
+  },
+  {
+    question: "How does a RESTful API request differ from a GraphQL query when retrieving nested resource relationships?",
+    options: [
+      "REST requires custom endpoints or multiple roundtrips; GraphQL allows client-specified nested queries in a single request.",
+      "REST utilizes WebSocket connections for nested resources.",
+      "GraphQL queries are always resolved faster than REST endpoints.",
+      "REST requires the query to be passed in the request body."
+    ],
+    correctAnswer: 0,
+    points: 10
+  },
+  {
+    question: "Which of the following describes the difference between Optimistic Concurrency Control (OCC) and Pessimistic Concurrency Control (PCC)?",
+    options: [
+      "OCC locks records before reading; PCC locks them only during write commit phase.",
+      "OCC assumes conflicts are rare and validates before committing; PCC uses locks to prevent conflicts.",
+      "OCC is only applicable in SQL databases; PCC is for NoSQL.",
+      "OCC always guarantees faster transactions than PCC."
+    ],
+    correctAnswer: 1,
+    points: 10
+  },
+  {
+    question: "In React's rendering lifecycle, what is the primary role of the Reconciliation algorithm (Fiber)?",
+    options: [
+      "To compile JSX elements into raw HTML strings.",
+      "To perform incremental rendering by splitting rendering work into chunks and prioritizing updates.",
+      "To manage the state of global Redux stores.",
+      "To fetch asynchronous data from APIs."
+    ],
+    correctAnswer: 1,
+    points: 10
+  },
+  {
+    question: "What is the time complexity of searching for a key in a Red-Black Tree in the worst case?",
+    options: [
+      "O(1)",
+      "O(log n)",
+      "O(n)",
+      "O(n log n)"
+    ],
+    correctAnswer: 1,
+    points: 10
+  },
+  {
+    question: "Under what circumstances does a JavaScript closure retain reference to variables in its outer scope?",
+    options: [
+      "Only if the outer scope variables are declared using the 'var' keyword.",
+      "Closures always retain variables, preventing garbage collection as long as the closure is reachable.",
+      "Only if the outer function is executed inside a microtask queue.",
+      "Variables are copied by value when the closure is created."
+    ],
+    correctAnswer: 1,
+    points: 10
+  },
+  {
+    question: "What is the function of the Write-Ahead Logging (WAL) protocol in relational databases?",
+    options: [
+      "To log query performance metrics for indexing optimization.",
+      "To ensure durability by writing modifications to disk before applying them to the database pages.",
+      "To compress backups for remote replica synchronization.",
+      "To validate user permissions before executing write queries."
+    ],
+    correctAnswer: 1,
+    points: 10
+  },
+  {
+    question: "Which security mechanism is designed to prevent Cross-Site Request Forgery (CSRF) tokens from being intercepted on cross-domain requests?",
+    options: [
+      "SameSite cookie attribute set to Strict or Lax.",
+      "Enabling Cross-Origin Resource Sharing (CORS) with access-control-allow-origin: '*'.",
+      "Storing the token in local storage instead of cookies.",
+      "Hashing the session ID using SHA-256."
+    ],
+    correctAnswer: 0,
+    points: 10
+  }
+];
+
 function TeacherQuizView() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -44,7 +157,7 @@ function TeacherQuizView() {
     options: string[];
     correctAnswer: number;
     points: number;
-  }>>([{ question: "", options: ["", "", "", ""], correctAnswer: 0, points: 10 }]);
+  }>>(DEFAULT_QUESTIONS);
   const [selectedQuiz, setSelectedQuiz] = useState<string | null>(null);
 
   const { data: quizzesRaw = [] } = useQuery({
@@ -84,7 +197,7 @@ function TeacherQuizView() {
       setShowCreate(false);
       setTitle("");
       setSubject("");
-      setQuestions([{ question: "", options: ["", "", "", ""], correctAnswer: 0, points: 10 }]);
+      setQuestions(DEFAULT_QUESTIONS);
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
