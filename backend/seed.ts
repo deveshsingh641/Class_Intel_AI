@@ -62,28 +62,17 @@ async function seed() {
   try {
     await connectDb();
 
-    // Clean collections to ensure a fresh, consistent state for all 17 subjects
-    if (mongoose.connection.db) {
-      const collections = await mongoose.connection.db.collections();
-      for (const collection of collections) {
-        await collection.deleteMany({});
-      }
-      console.log("  🧹 Cleaned database collections");
-    }
-
-    // Teachers
-    const existingTeachers = await storage.getTeachers();
-    let teachers = existingTeachers;
-    if (existingTeachers.length === 0) {
-      console.log("  Adding teachers...");
-      for (const teacher of INITIAL_TEACHERS) {
+    // Seeding teachers individually if they don't already exist (non-destructive)
+    console.log("  Seeding teachers...");
+    for (const teacher of INITIAL_TEACHERS) {
+      const exists = await storage.getTeacherByName(teacher.name);
+      if (!exists) {
         await storage.createTeacher(teacher);
+        console.log(`    ✅ Added teacher: ${teacher.name}`);
       }
-      teachers = await storage.getTeachers();
-      console.log(`  ✅ Added ${INITIAL_TEACHERS.length} teachers`);
-    } else {
-      console.log(`  ℹ️  Found ${existingTeachers.length} existing teachers, skipping`);
     }
+    const teachers = await storage.getTeachers();
+    console.log(`  Total teachers in database: ${teachers.length}`);
 
     // Admin user
     const existingAdmin = await storage.getUserByEmail("admin@edu.com");
