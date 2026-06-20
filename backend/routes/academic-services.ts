@@ -23,7 +23,8 @@ import {
   AuthRequest,
   getTeacherId,
   escapeRegex,
-  upload
+  upload,
+  ABUSIVE_WORDS
 } from "./common";
 
 const router = Router();
@@ -40,7 +41,8 @@ router.post("/ai/analyze-feedback/:id", authenticateToken, async (req: AuthReque
     }
     
     const sentiment = intelligence.analyzeSentiment(fb.comment || "");
-    const qualityScore = fb.rating >= 4 ? 85 : fb.rating === 3 ? 60 : 30;
+    const commentLen = (fb.comment || "").length;
+    const qualityScore = Math.min(5, Math.max(1, Math.round((commentLen / 50) + fb.rating / 2)));
 
     await storage.saveFeedbackAnalysis({
       feedbackId: fb._id,
@@ -63,16 +65,103 @@ router.post("/ai/analyze-feedback/:id", authenticateToken, async (req: AuthReque
   }
 });
 
+router.post("/ai/detect-toxic", authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { text } = req.body as { text?: string };
+    if (!text || typeof text !== "string" || !text.trim()) {
+      return res.status(400).json({ error: "Text is required" });
+    }
+
+    const lower = text.toLowerCase();
+    const matchedWords = ABUSIVE_WORDS.filter(w => lower.includes(w));
+    const isToxic = matchedWords.length > 0;
+
+    res.json({
+      isToxic,
+      confidence: isToxic ? 0.98 : 0.99,
+      reason: isToxic
+        ? `Feedback contains potentially inappropriate language: "${matchedWords.join(", ")}".`
+        : "Text verified clean.",
+      categories: isToxic ? ["toxic", "insult"] : [],
+    });
+  } catch (error: any) {
+    console.error("Toxic detection error:", error);
+    res.status(500).json({ error: error?.message || "Failed to detect toxicity" });
+  }
+});
+
 router.post("/ai/teacher-summary/:id", authenticateToken, async (req: AuthRequest, res) => {
   try {
     const teacherId = req.params.id;
+    const teacher = await storage.getTeacher(teacherId);
     const feedbackList = await storage.getFeedbackByTeacher(teacherId);
     const count = feedbackList.length;
     const avg = count > 0 ? (feedbackList.reduce((s, f) => s + f.rating, 0) / count).toFixed(1) : "0.0";
 
-    const summary = `System calculated summary of ${count} feedback submissions. The teacher has an average rating of ${avg}/5.0.`;
-    const strengths = ["Good subject explanation", "Approachable during query sessions"];
-    const improvements = ["Incorporate more practical class examples", "Optimize course pacing"];
+    const comments = feedbackList.map(f => f.comment || "").filter(c => c.trim());
+
+    let summary = `System calculated summary of ${count} feedback submissions. The teacher has an average rating of ${avg}/5.0.`;
+    let strengths = ["Good subject explanation", "Approachable during query sessions"];
+    let improvements = ["Incorporate more practical class examples", "Optimize course pacing"];
+
+    if (comments.length > 0) {
+      const sentiment = intelligence.batchSentiment(comments);
+      const topics = intelligence.batchTopicExtraction(comments);
+
+      const topicLabels: Record<string, string> = {
+        pace: "Teaching Pace",
+        clarity: "Clarity & Explanation",
+        examples: "Practical Examples",
+        engagement: "Student Engagement",
+        content: "Course Content",
+        assessment: "Assessment & Grading",
+        communication: "Communication",
+        resources: "Learning Resources",
+        support: "Student Support",
+        organization: "Organization & Preparation"
+      };
+
+      const suggestions = intelligence.generateSuggestions(comments, teacher?.name || "Teacher", teacher?.subject || "General");
+      summary = suggestions.summary;
+
+      // Group feedback comments by topic and check the average rating for feedback items mentioning each topic.
+      const topicStats: Record<string, { sum: number; count: number }> = {};
+      for (const f of feedbackList) {
+        const comment = f.comment || "";
+        if (!comment.trim()) continue;
+        const result = intelligence.extractTopics(comment);
+        for (const t of result.topics) {
+          if (!topicStats[t.topic]) {
+            topicStats[t.topic] = { sum: 0, count: 0 };
+          }
+          topicStats[t.topic].sum += f.rating;
+          topicStats[t.topic].count++;
+        }
+      }
+
+      const extractedStrengths: string[] = [];
+      const extractedImprovements: string[] = [];
+
+      for (const [topicKey, stats] of Object.entries(topicStats)) {
+        const labelName = topicLabels[topicKey] || topicKey;
+        const topicAvg = stats.sum / stats.count;
+        if (topicAvg >= 3.5) {
+          extractedStrengths.push(labelName);
+        } else {
+          extractedImprovements.push(labelName);
+        }
+      }
+
+      if (extractedStrengths.length > 0) strengths = extractedStrengths.slice(0, 3);
+      if (extractedImprovements.length > 0) improvements = extractedImprovements.slice(0, 3);
+      
+      if (strengths.length === 0 && improvements.length > 0) {
+        strengths = ["Subject knowledge depth"];
+      }
+      if (improvements.length === 0 && strengths.length > 0) {
+        improvements = ["Maintain active class participation"];
+      }
+    }
 
     await storage.saveTeacherSummary({
       teacherId,
@@ -145,7 +234,8 @@ router.post("/ai/improve-feedback", authenticateToken, requireRole("student"), a
     if (!comment || typeof comment !== "string" || !comment.trim()) {
       return res.status(400).json({ error: "Comment is required" });
     }
-    res.json({ improvedComment: comment.trim() });
+    const improvedComment = intelligence.polishFeedback(comment);
+    res.json({ improvedComment });
   } catch (error: any) {
     console.error("Improve feedback error:", error);
     res.status(500).json({ error: error?.message || "Failed to improve feedback" });
@@ -184,11 +274,27 @@ router.post("/ai/reply-templates", authenticateToken, async (req: AuthRequest, r
       return res.status(400).json({ error: "Comment is required" });
     }
 
-    const templates = [
+    const sentiment = intelligence.analyzeSentiment(comment);
+    let templates = [
       "Thank you for the detailed feedback. I will look into ways to incorporate this into my future class planning.",
       "I appreciate your suggestions and will review the pacing of the topics to ensure better understanding.",
       "Thank you for sharing your thoughts. I am glad to see you are enjoying the course materials.",
     ];
+
+    if (sentiment.sentiment === "positive") {
+      templates = [
+        "Thank you so much for the encouraging feedback! I am glad you are finding the lectures engaging.",
+        "I really appreciate the kind words. I will continue to provide structured class sessions and support.",
+        "Thank you for sharing. I'm happy to hear that the teaching style and resources are working well for you."
+      ];
+    } else if (sentiment.sentiment === "negative") {
+      templates = [
+        "Thank you for the constructive feedback. I will look closely at these areas to improve the classroom pace and clarity.",
+        "I appreciate your suggestions and will work on incorporating more real-world examples and practical exercises.",
+        "Thank you for pointing this out. I will review the lecture structure and ensure doubts are addressed promptly."
+      ];
+    }
+
     res.json({ templates });
   } catch (error: any) {
     console.error("Reply templates error:", error);

@@ -812,3 +812,86 @@ export function fullAnalysis(feedback: string): FullAnalysisResult {
     keywords: sentiment.keywords,
   };
 }
+
+/**
+ * Polishes short or unconstructive feedback comments into more professional,
+ * constructive student feedback templates using matching logic.
+ */
+export function polishFeedback(comment: string): string {
+  const trimmed = comment.trim();
+  if (!trimmed) return comment;
+
+  const lower = trimmed.toLowerCase();
+
+  // 1. Direct match for short common phrases
+  const shortPhrases: Record<string, string> = {
+    "good class": "The lectures are well-organized, engaging, and provide clear explanations of the subject matter.",
+    "great teacher": "The instructor is highly supportive, knowledgeable, and always approachable during query sessions.",
+    "boring lectures": "The classes would be more engaging if they included more interactive sessions or practical examples.",
+    "too fast": "The pacing of the lectures is a bit fast, and it would be helpful if we could slow down for complex topics.",
+    "too slow": "The lecture speed is relatively slow; introducing more interactive activities or discussions would boost engagement.",
+    "hard to understand": "Some concepts are difficult to grasp; presenting more practical real-world examples would improve clarity.",
+    "unclear explanation": "The explanations are sometimes difficult to follow. Providing detailed visual aids or slide summaries would be beneficial.",
+    "unfair grading": "The assessment rubrics could be clearer so students know exactly how they are being evaluated.",
+    "no slides": "Sharing lecture slides and reading reference materials before each class would greatly support our study."
+  };
+
+  for (const [key, replacement] of Object.entries(shortPhrases)) {
+    if (lower === key || lower === key + "." || lower === key + "!") {
+      return replacement;
+    }
+  }
+
+  // 2. Map specific key terms if present in a slightly longer comment
+  let hasNegativeMatch = false;
+
+  const mapping = [
+    { keys: ["fast", "speed", "rushed", "pace"], improvement: "adjusting the pacing to allow more time for questions" },
+    { keys: ["clear", "explain", "explanation", "understand"], improvement: "providing clearer explanations of complex concepts" },
+    { keys: ["example", "practical", "real world", "demo"], improvement: "incorporating more practical real-world examples and live demos" },
+    { keys: ["boring", "engaging", "interactive", "monotone"], improvement: "increasing class engagement through interactive polls or group discussions" },
+    { keys: ["slide", "note", "resource", "material"], improvement: "sharing slides and reference notes prior to the lectures" }
+  ];
+
+  const matchedImprovements: string[] = [];
+  for (const item of mapping) {
+    if (item.keys.some(k => lower.includes(k))) {
+      matchedImprovements.push(item.improvement);
+      hasNegativeMatch = true;
+    }
+  }
+
+  if (hasNegativeMatch && matchedImprovements.length > 0) {
+    return `While the course content is comprehensive, I believe the class experience could be enhanced by ${matchedImprovements.join(" and ")}.`;
+  }
+
+  // 3. For already long / verbose feedback, do simple polishing (capitalization, cleanup of informal text, replacement of abusive/harsh terms)
+  let polished = trimmed;
+
+  const replacements: Record<string, string> = {
+    "grt": "great",
+    "prof": "professor",
+    "ppt": "lecture slides",
+    "hw": "assignments",
+    "terrible": "in need of enhancement",
+    "bad": "needing improvement",
+    "stupid": "unclear",
+    "boring": "less interactive",
+    "hate": "would prefer improvements in",
+    "lazy": "unprepared",
+    "worst": "least effective"
+  };
+
+  for (const [slang, formal] of Object.entries(replacements)) {
+    const regex = new RegExp(`\\b${slang}\\b`, "gi");
+    polished = polished.replace(regex, formal);
+  }
+
+  polished = polished.charAt(0).toUpperCase() + polished.slice(1);
+  if (!polished.endsWith(".") && !polished.endsWith("!") && !polished.endsWith("?")) {
+    polished += ".";
+  }
+
+  return polished;
+}
+
