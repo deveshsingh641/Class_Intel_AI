@@ -126,6 +126,27 @@ router.post("/auth/logout", authenticateToken, async (req: AuthRequest, res) => 
   res.json({ ok: true });
 });
 
+// Protected remote seed endpoint — only works when SEED_SECRET env var is set
+router.post("/admin/seed", async (req, res) => {
+  try {
+    const secret = process.env.SEED_SECRET;
+    if (!secret) {
+      return res.status(403).json({ error: "Remote seeding is not enabled on this server" });
+    }
+    const provided = req.headers["x-seed-secret"] || req.body?.seedSecret;
+    if (provided !== secret) {
+      return res.status(403).json({ error: "Invalid seed secret" });
+    }
+    const { seed } = await import("../seed");
+    await seed();
+    res.json({ ok: true, message: "Database seeded successfully" });
+  } catch (error: any) {
+    console.error("Remote seed error:", error);
+    res.status(500).json({ error: error?.message || "Seeding failed" });
+  }
+});
+
+
 router.post("/office/slots", authenticateToken, requireRole("teacher", "admin"), async (req: AuthRequest, res) => {
   try {
     const teacherRow =

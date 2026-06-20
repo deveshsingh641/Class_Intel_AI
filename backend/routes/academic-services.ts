@@ -4,7 +4,7 @@ import { Readable } from "stream";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse: (buffer: Buffer) => Promise<{ text: string }> = require("pdf-parse");
+const { PDFParse } = require("pdf-parse");
 import { storage } from "../storage";
 import * as intelligence from "../intelligence";
 import {
@@ -992,8 +992,9 @@ router.post("/rag/documents/parse-file", authenticateToken, requireRole("teacher
     let extractedText = "";
 
     if (mime === "application/pdf" || filename.toLowerCase().endsWith(".pdf")) {
-      const data = await pdfParse(req.file.buffer);
-      extractedText = data.text || "";
+      const parser = new PDFParse({ data: req.file.buffer });
+      const result = await parser.getText();
+      extractedText = result.text || "";
     } else if (
       mime === "text/plain" ||
       filename.toLowerCase().endsWith(".txt") ||

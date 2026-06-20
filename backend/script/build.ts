@@ -18,6 +18,7 @@ const allowlist = [
   "multer",
   "nanoid",
   "openai",
+  "pdf-parse",
   "puppeteer",
   "ws",
   "zod",
