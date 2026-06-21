@@ -10,6 +10,9 @@ import studyGroupsRouter from "./study-groups";
 import analyticsRouter from "./analytics";
 import feedbackRouter from "./feedback";
 import academicServicesRouter from "./academic-services";
+import announcementsRouter from "./announcements";
+import achievementsRouter from "./achievements";
+import assignmentsRouter from "./assignments";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -47,6 +50,9 @@ export async function registerRoutes(
   app.use("/api", analyticsRouter);
   app.use("/api", feedbackRouter);
   app.use("/api", academicServicesRouter);
+  app.use("/api", announcementsRouter);
+  app.use("/api", achievementsRouter);
+  app.use("/api", assignmentsRouter);
 
   return httpServer;
 }

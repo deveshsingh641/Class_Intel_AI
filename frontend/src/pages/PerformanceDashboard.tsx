@@ -177,7 +177,56 @@ function StudentPerformance() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Engagement Score Ring */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="glass-card border border-emerald-500/20 md:col-span-1">
+              <CardContent className="p-6 flex flex-col items-center text-center gap-4">
+                <h3 className="font-semibold text-muted-foreground">Engagement Score</h3>
+                <div className="relative w-36 h-36">
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
+                    <circle
+                      cx="50" cy="50" r="40" fill="none"
+                      stroke="url(#engGrad)" strokeWidth="8"
+                      strokeLinecap="round"
+                      strokeDasharray={`${2 * Math.PI * 40}`}
+                      strokeDashoffset={`${2 * Math.PI * 40 * (1 - (performance.engagementScore || 0) / 100)}`}
+                      style={{ transition: "stroke-dashoffset 1s ease" }}
+                    />
+                    <defs>
+                      <linearGradient id="engGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#10b981" />
+                        <stop offset="100%" stopColor="#06b6d4" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-3xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
+                      {performance.engagementScore || 0}
+                    </span>
+                    <span className="text-xs text-muted-foreground">/ 100</span>
+                  </div>
+                </div>
+                <div className="w-full space-y-2 text-sm">
+                  {[
+                    { label: "Attendance", weight: "30%", value: performance.attendance || 0, color: "from-emerald-500 to-green-400" },
+                    { label: "Quiz Avg", weight: "30%", value: performance.quizAverage || 0, color: "from-blue-500 to-indigo-400" },
+                    { label: "Feedback", weight: "20%", value: Math.min(100, (performance.feedbackSentiment || 0 + 1) * 50), color: "from-purple-500 to-violet-400" },
+                    { label: "Assignments", weight: "20%", value: performance.assignmentsTotal > 0 ? Math.round((performance.assignmentsSubmitted / performance.assignmentsTotal) * 100) : 0, color: "from-amber-500 to-orange-400" },
+                  ].map((m) => (
+                    <div key={m.label} className="flex items-center gap-2">
+                      <span className="text-muted-foreground w-20 text-left text-xs">{m.label}</span>
+                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full bg-gradient-to-r ${m.color}`} style={{ width: `${m.value}%` }} />
+                      </div>
+                      <span className="text-xs font-medium w-8 text-right">{Math.round(m.value)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="md:col-span-2 grid grid-cols-1 gap-4">
             {/* Radar Chart */}
             <Card>
               <CardHeader>
@@ -229,6 +278,7 @@ function StudentPerformance() {
                 )}
               </CardContent>
             </Card>
+            </div>
           </div>
 
           {/* Detailed Metrics */}

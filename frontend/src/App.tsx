@@ -28,6 +28,9 @@ import LectureSummarizer from "@/pages/LectureSummarizer";
 import QuizPage from "@/pages/QuizPage";
 import PerformanceDashboard from "@/pages/PerformanceDashboard";
 import RAGChatbot from "@/pages/RAGChatbot";
+import AnnouncementsPage from "@/pages/AnnouncementsPage";
+import AchievementsPage from "@/pages/AchievementsPage";
+import AssignmentsPage from "@/pages/AssignmentsPage";
 
 function ProtectedRoute({ 
   children, 
@@ -156,6 +159,24 @@ function Router() {
       <Route path="/study-assistant">
         <ProtectedRoute>
           <RAGChatbot />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/announcements">
+        <ProtectedRoute>
+          <AnnouncementsPage />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/achievements">
+        <ProtectedRoute allowedRoles={["student"]}>
+          <AchievementsPage />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/assignments">
+        <ProtectedRoute>
+          <AssignmentsPage />
         </ProtectedRoute>
       </Route>
 

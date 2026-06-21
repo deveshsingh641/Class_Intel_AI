@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LogOut, Brain, User, Menu, GraduationCap, BookOpen, ClipboardCheck, FileText, BarChart3, Bot } from "lucide-react";
+import { LogOut, Brain, User, Menu, GraduationCap, BookOpen, ClipboardCheck, FileText, BarChart3, Bot, Megaphone, ClipboardList, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "./ThemeToggle";
@@ -31,6 +31,8 @@ export function Navbar() {
           { href: "/admin", label: "Dashboard", icon: BarChart3 },
           { href: "/admin/teachers", label: "Teachers", icon: GraduationCap },
           { href: "/teacher/intelligence", label: "Insights", icon: BarChart3 },
+          { href: "/announcements", label: "Announcements", icon: Megaphone },
+          { href: "/assignments", label: "Assignments", icon: ClipboardList },
           { href: "/quizzes", label: "Quizzes", icon: FileText },
           { href: "/lectures", label: "Lectures", icon: BookOpen },
         ]
@@ -38,6 +40,8 @@ export function Navbar() {
       ? [
           { href: "/teacher", label: "Dashboard", icon: BarChart3 },
           { href: "/teacher/intelligence", label: "Insights", icon: BarChart3 },
+          { href: "/announcements", label: "Announcements", icon: Megaphone },
+          { href: "/assignments", label: "Assignments", icon: ClipboardList },
           { href: "/quizzes", label: "Quizzes", icon: FileText },
           { href: "/lectures", label: "Lectures", icon: BookOpen },
           { href: "/attendance", label: "Attendance", icon: ClipboardCheck },
@@ -45,6 +49,9 @@ export function Navbar() {
         ]
       : [
           { href: "/student", label: "My Hub", icon: GraduationCap },
+          { href: "/announcements", label: "Announcements", icon: Megaphone },
+          { href: "/assignments", label: "Assignments", icon: ClipboardList },
+          { href: "/achievements", label: "Achievements", icon: Trophy },
           { href: "/attendance", label: "Attendance", icon: ClipboardCheck },
           { href: "/quizzes", label: "Quizzes", icon: FileText },
           { href: "/lectures", label: "Lectures", icon: BookOpen },

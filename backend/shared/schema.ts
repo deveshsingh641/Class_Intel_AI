@@ -690,3 +690,79 @@ export const submitQuizSchema = z.object({
   rightClickAttempts: z.number().default(0),
   suspiciousTimePatterns: z.number().default(0),
 });
+
+// ─── New Feature Schemas ───────────────────────────────────────────────────────
+
+const announcementSchema = new Schema(
+  {
+    _id: stringId,
+    teacherId: { type: String, ref: "Teacher", required: true },
+    teacherName: { type: String, required: true },
+    subject: { type: String, required: true },
+    title: { type: String, required: true },
+    body: { type: String, required: true },
+    priority: { type: String, enum: ["normal", "important", "urgent"], default: "normal" },
+    expiresAt: { type: Date },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { collection: "announcements" },
+);
+
+const assignmentSchema = new Schema(
+  {
+    _id: stringId,
+    teacherId: { type: String, ref: "Teacher", required: true },
+    teacherName: { type: String, required: true },
+    title: { type: String, required: true },
+    description: { type: String, required: true },
+    subject: { type: String, required: true },
+    dueDate: { type: Date, required: true },
+    maxMarks: { type: Number, default: 100 },
+    isActive: { type: Boolean, default: true },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { collection: "assignments" },
+);
+
+const assignmentSubmissionSchema = new Schema(
+  {
+    _id: stringId,
+    assignmentId: { type: String, ref: "Assignment", required: true },
+    studentId: { type: String, ref: "User", required: true },
+    studentName: { type: String, required: true },
+    text: { type: String, required: true },
+    grade: { type: Number },
+    gradeFeedback: { type: String },
+    gradedAt: { type: Date },
+    submittedAt: { type: Date, default: Date.now },
+  },
+  { collection: "assignment_submissions" },
+);
+assignmentSubmissionSchema.index({ assignmentId: 1, studentId: 1 }, { unique: true });
+
+const auditLogSchema = new Schema(
+  {
+    _id: stringId,
+    userId: { type: String, ref: "User", required: true },
+    userName: { type: String, required: true },
+    userRole: { type: String, required: true },
+    action: { type: String, required: true },
+    target: { type: String },
+    targetId: { type: String },
+    detail: { type: String },
+    ip: { type: String },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { collection: "audit_logs" },
+);
+
+export const AnnouncementModel = model("Announcement", announcementSchema);
+export const AssignmentModel = model("Assignment", assignmentSchema);
+export const AssignmentSubmissionModel = model("AssignmentSubmission", assignmentSubmissionSchema);
+export const AuditLogModel = model("AuditLog", auditLogSchema);
+
+export type AnnouncementDoc = InferSchemaType<typeof announcementSchema> & { id: string };
+export type AssignmentDoc = InferSchemaType<typeof assignmentSchema> & { id: string };
+export type AssignmentSubmissionDoc = InferSchemaType<typeof assignmentSubmissionSchema> & { id: string };
+export type AuditLogDoc = InferSchemaType<typeof auditLogSchema> & { id: string };
+

@@ -17,7 +17,7 @@ import {
   BarChart3, Target, Award, Zap, FileText,
   ChevronRight, Sparkles, CalendarDays, Users,
   ThumbsUp, ThumbsDown, HelpCircle, Search,
-  ArrowUpRight, Flame, Trophy, Activity, Lightbulb, Rocket,
+  ArrowUpRight, Flame, Trophy, Activity, Lightbulb, Rocket, Bell, Megaphone, ClipboardList,
 } from "lucide-react";
 
 const API = getApiBaseUrl();
@@ -28,6 +28,62 @@ function getHeaders() {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
   };
+}
+
+function AnnouncementBanner() {
+  const { data: announcements = [] } = useQuery<any[]>({
+    queryKey: ["/api/announcements"],
+    queryFn: async () => {
+      const res = await fetch(`${API}/api/announcements`, { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    refetchInterval: 60000,
+  });
+
+  if (!announcements || announcements.length === 0) return null;
+
+  const urgent = announcements.filter((a: any) => a.priority === "urgent");
+  const recent = announcements[0];
+  const display = urgent.length > 0 ? urgent[0] : recent;
+  if (!display) return null;
+
+  const isUrgent = display.priority === "urgent";
+  const isImportant = display.priority === "important";
+
+  return (
+    <Link href="/announcements">
+      <Card className={`cursor-pointer hover-lift transition-all overflow-hidden glass-card border ${
+        isUrgent ? "border-red-500/30 bg-red-500/5" : isImportant ? "border-amber-500/30 bg-amber-500/5" : "border-blue-500/30 bg-blue-500/5"
+      }`}>
+        <div className={`h-1 bg-gradient-to-r ${
+          isUrgent ? "from-red-500 to-rose-400" : isImportant ? "from-amber-500 to-yellow-400" : "from-blue-500 to-cyan-400"
+        }`} />
+        <CardContent className="p-3">
+          <div className="flex items-center gap-3">
+            <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${
+              isUrgent ? "bg-red-500/15" : isImportant ? "bg-amber-500/15" : "bg-blue-500/15"
+            }`}>
+              {isUrgent ? <Megaphone className="h-4 w-4 text-red-500" /> : <Bell className={`h-4 w-4 ${isImportant ? "text-amber-500" : "text-blue-500"}`} />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-sm truncate">{display.title}</span>
+                <Badge variant="outline" className="text-[10px] shrink-0">{display.subject}</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground truncate">{display.body}</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {announcements.length > 1 && (
+                <Badge variant="secondary" className="text-[10px]">{announcements.length} total</Badge>
+              )}
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
 }
 
 function getGreeting(): string {
@@ -141,6 +197,9 @@ function OverviewTab({ stats }: { stats: any }) {
         ))}
       </div>
 
+      {/* Announcements Banner */}
+      <AnnouncementBanner />
+
       {/* Quick Actions */}
       <Card className="glass-card overflow-hidden relative">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
@@ -153,12 +212,14 @@ function OverviewTab({ stats }: { stats: any }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
               { href: "/attendance", icon: ClipboardCheck, label: "Mark Attendance", color: "hover:border-emerald-500/50 hover:bg-emerald-500/5", iconColor: "text-emerald-500" },
               { href: "/quizzes", icon: FileText, label: "Take Quiz", color: "hover:border-green-500/50 hover:bg-green-500/5", iconColor: "text-green-500" },
+              { href: "/assignments", icon: ClipboardList, label: "Assignments", color: "hover:border-violet-500/50 hover:bg-violet-500/5", iconColor: "text-violet-500" },
+              { href: "/announcements", icon: Bell, label: "Announcements", color: "hover:border-blue-500/50 hover:bg-blue-500/5", iconColor: "text-blue-500" },
+              { href: "/achievements", icon: Trophy, label: "Achievements", color: "hover:border-amber-500/50 hover:bg-amber-500/5", iconColor: "text-amber-500" },
               { href: "/study-assistant", icon: BookOpen, label: "Course Notes", color: "hover:border-teal-500/50 hover:bg-teal-500/5", iconColor: "text-teal-500" },
-              { href: "/lectures", icon: BookOpen, label: "Lectures", color: "hover:border-cyan-500/50 hover:bg-cyan-500/5", iconColor: "text-cyan-500" },
             ].map((action) => (
               <Link key={action.href} href={action.href}>
                 <Button variant="outline" className={`w-full h-auto py-5 flex flex-col items-center gap-2.5 transition-all duration-200 ${action.color} group`}>
