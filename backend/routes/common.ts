@@ -42,7 +42,7 @@ const ENV_ABUSE_WORDS = process.env.ABUSE_WORDS
 export const ABUSIVE_WORDS = ENV_ABUSE_WORDS.length > 0 ? ENV_ABUSE_WORDS : DEFAULT_ABUSIVE_WORDS;
 
 export const upload = multer({
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 25 * 1024 * 1024 },
 });
 
 export function escapeRegex(input: string) {

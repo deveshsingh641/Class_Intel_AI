@@ -423,7 +423,10 @@ function DoubtsTab() {
         headers: getHeaders(),
         body: JSON.stringify({ teacherId: selectedTeacher, question }),
       });
-      if (!res.ok) throw new Error((await res.json()).error || "Failed");
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || errData.message || "Failed");
+      }
       return res.json();
     },
     onSuccess: () => {

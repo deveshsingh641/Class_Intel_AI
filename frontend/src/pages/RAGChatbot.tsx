@@ -409,7 +409,10 @@ function DocumentUploader() {
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
-      if (!res.ok) throw new Error((await res.json()).error || "Failed to parse file");
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || errData.message || "Failed to parse file");
+      }
       return res.json() as Promise<{ text: string; chars: number; words: number }>;
     },
     onSuccess: (data) => {
