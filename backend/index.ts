@@ -57,11 +57,29 @@ const parsedOrigins = corsOrigin
       .filter(Boolean)
   : [];
 
-const allowAnyOrigin = parsedOrigins.length === 0 || parsedOrigins.includes("*");
-
 app.use(
   cors({
-    origin: allowAnyOrigin ? true : parsedOrigins,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, or server-to-server)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      const isAllowed =
+        parsedOrigins.length === 0 ||
+        parsedOrigins.includes("*") ||
+        parsedOrigins.includes(origin) ||
+        origin.endsWith(".vercel.app") ||
+        origin.endsWith(".onrender.com") ||
+        /^https?:\/\/localhost(:\d+)?$/.test(origin);
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        console.warn(`[cors] Blocked origin: ${origin}`);
+        callback(null, false);
+      }
+    },
     credentials: true,
   }),
 );
@@ -130,17 +148,12 @@ app.use((req, res, next) => {
   try {
     await connectDbWithRetry();
 
-    const shouldSeed =
-      process.env.SEED_ON_STARTUP === "true" ||
-      (isDev && process.env.SEED_ON_STARTUP !== "false");
-
-    if (shouldSeed) {
-      try {
-        const { seed } = await import("./seed");
-        await seed();
-      } catch (seedError) {
-        console.warn("[server] Database seeding failed:", seedError);
-      }
+    // Always attempt database seeding on startup (safely handles existing entries)
+    try {
+      const { seed } = await import("./seed");
+      await seed();
+    } catch (seedError) {
+      console.warn("[server] Database seeding failed:", seedError);
     }
 
     await registerRoutes(httpServer, app);

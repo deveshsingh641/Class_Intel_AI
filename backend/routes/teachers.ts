@@ -15,7 +15,8 @@ import {
   escapeRegex,
   parsePositiveInt,
   upload,
-  getTeacherId
+  getTeacherId,
+  recordAuditLog
 } from "./common";
 
 const router = Router();
@@ -225,6 +226,11 @@ router.post("/admin/teachers/bulk-import", authenticateToken, requireRole("admin
         teachers: createdTeachers
       });
     }
+
+    await recordAuditLog(req.user!.id, req.user!.name, req.user!.role, "teacher_bulk_import", {
+      detail: `Successfully imported ${createdTeachers.length} teachers from CSV`,
+      ip: req.ip
+    });
 
     res.json({
       message: "All teachers imported successfully",

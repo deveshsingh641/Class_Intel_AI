@@ -11,8 +11,12 @@ import {
   AuthRequest,
   JWT_SECRET,
   revokedTokenJtis,
-  authRateLimiter
+  authRateLimiter,
+  upload,
+  recordAuditLog
 } from "./common";
+import csv from "csv-parser";
+import { Readable } from "stream";
 
 const router = Router();
 
@@ -36,6 +40,11 @@ router.post("/auth/signup", authRateLimiter, async (req, res) => {
       JWT_SECRET,
       { expiresIn: "7d" }
     );
+
+    await recordAuditLog(user.id, user.name, user.role, "signup", {
+      detail: `User registered with email ${user.email}`,
+      ip: req.ip
+    });
 
     res.json({
       token,
@@ -76,6 +85,11 @@ router.post("/auth/login", authRateLimiter, async (req, res) => {
       JWT_SECRET,
       { expiresIn: "7d" }
     );
+
+    await recordAuditLog(user.id, user.name, user.role, "login", {
+      detail: `User logged in`,
+      ip: req.ip
+    });
 
     res.json({
       token,
@@ -139,10 +153,112 @@ router.post("/admin/seed", async (req, res) => {
     }
     const { seed } = await import("../seed");
     await seed();
+    await recordAuditLog("system", "System", "admin", "db_seed", {
+      detail: "Database seeded successfully via remote seed",
+      ip: req.ip
+    });
     res.json({ ok: true, message: "Database seeded successfully" });
   } catch (error: any) {
     console.error("Remote seed error:", error);
     res.status(500).json({ error: error?.message || "Seeding failed" });
+  }
+});
+
+router.post("/admin/students/bulk-import", authenticateToken, requireRole("admin"), upload.single('file'), async (req: AuthRequest, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    const students: any[] = [];
+    const errors: string[] = [];
+
+    const readableStream = Readable.from(req.file.buffer.toString());
+    
+    await new Promise((resolve, reject) => {
+      readableStream
+        .pipe(csv())
+        .on('data', (row) => {
+          try {
+            if (!row.name || !row.email) {
+              errors.push(`Row with email ${row.email || 'unknown'} missing name or email`);
+              return;
+            }
+
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(row.email)) {
+              errors.push(`Invalid email format: ${row.email}`);
+              return;
+            }
+
+            students.push({
+              name: row.name.trim(),
+              email: row.email.trim().toLowerCase(),
+              username: row.email.trim().toLowerCase().split("@")[0],
+              password: row.password?.trim() || "student123",
+              department: row.department?.trim() || undefined,
+              role: "student",
+            });
+          } catch (error) {
+            errors.push(`Error processing row: ${error}`);
+          }
+        })
+        .on('end', resolve)
+        .on('error', reject);
+    });
+
+    if (errors.length > 0) {
+      return res.status(400).json({ 
+        error: "CSV validation failed", 
+        details: errors 
+      });
+    }
+
+    const createdStudents = [];
+    for (const studentData of students) {
+      try {
+        const existing = await storage.getUserByEmail(studentData.email);
+        if (existing) {
+          errors.push(`Student with email ${studentData.email} already exists`);
+          continue;
+        }
+        const student = await storage.createUser(studentData);
+        createdStudents.push({
+          id: student.id,
+          name: student.name,
+          email: student.email,
+          role: student.role,
+          department: student.department
+        });
+      } catch (error) {
+        errors.push(`Failed to create student ${studentData.email}: ${error}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      return res.status(207).json({ 
+        message: "Partial import completed", 
+        imported: createdStudents.length,
+        total: students.length,
+        errors: errors,
+        students: createdStudents
+      });
+    }
+
+    await recordAuditLog(req.user!.id, req.user!.name, req.user!.role, "student_bulk_import", {
+      detail: `Successfully imported ${createdStudents.length} students from CSV`,
+      ip: req.ip
+    });
+
+    res.json({
+      message: "All students imported successfully",
+      imported: createdStudents.length,
+      total: students.length,
+      students: createdStudents
+    });
+  } catch (error: any) {
+    console.error("Bulk import students error:", error);
+    res.status(500).json({ error: error?.message || "Failed to import students" });
   }
 });
 

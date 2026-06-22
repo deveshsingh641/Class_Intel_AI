@@ -19,7 +19,8 @@ import {
   SentimentSnapshotModel,
   AlertModel,
   ActionItemModel,
-  WeeklyDigestModel
+  WeeklyDigestModel,
+  QuizModel
 } from "@shared/schema";
 import {
   authenticateToken,
@@ -729,6 +730,41 @@ router.get("/ai/suggestions", authenticateToken, async (req: AuthRequest, res) =
 
 router.post("/ai/quizzes/generate", authenticateToken, requireRole("teacher", "admin"), async (_req: AuthRequest, res) => {
   res.status(400).json({ error: "AI Quiz generation is disabled. Please create quizzes manually." });
+});
+
+router.post("/rag/documents/:id/generate-quiz", authenticateToken, requireRole("teacher", "admin"), async (req: AuthRequest, res) => {
+  try {
+    const docId = req.params.id;
+    const doc = await CourseDocumentModel.findById(docId).lean();
+    if (!doc) {
+      return res.status(404).json({ error: "Course document not found" });
+    }
+
+    const quizQuestions = intelligence.generateQuizFromText(doc.title, doc.content);
+    
+    // Create the Quiz in the DB
+    const teacherId = await getTeacherId(req.user!);
+    const quiz = await QuizModel.create({
+      teacherId,
+      title: `Generated Quiz: ${doc.title}`,
+      subject: doc.subject || "General",
+      questions: JSON.stringify(quizQuestions),
+      duration: 15, // 15 minutes default
+      isActive: true,
+    });
+
+    res.status(201).json({
+      id: quiz._id,
+      title: quiz.title,
+      subject: quiz.subject,
+      questions: quizQuestions,
+      duration: quiz.duration,
+      isActive: quiz.isActive,
+    });
+  } catch (error: any) {
+    console.error("AI Quiz generation error:", error);
+    res.status(500).json({ error: error?.message || "Failed to generate AI Quiz" });
+  }
 });
 
 // Local Heuristics & Reports

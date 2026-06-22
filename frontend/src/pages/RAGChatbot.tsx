@@ -602,6 +602,36 @@ function DocumentList({ isTeacher }: { isTeacher: boolean }) {
     },
   });
 
+  const generateQuizMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API}/api/rag/documents/${id}/generate-quiz`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "AI Quiz Generated!",
+        description: `Successfully generated quiz: "${data.title}"`,
+      });
+      // Invalidate quizzes list query if any
+      queryClient.invalidateQueries({ queryKey: ["/api/quizzes"] });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "Generation Failed",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleTogglePreview = async (id: string) => {
     if (expandedId === id) {
       setExpandedId(null);
@@ -677,16 +707,33 @@ function DocumentList({ isTeacher }: { isTeacher: boolean }) {
                           <Eye className="h-3.5 w-3.5 text-muted-foreground" />
                         )}
                       </Button>
-                      {isTeacher && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => deleteMutation.mutate(id)}
-                          disabled={deleteMutation.isPending}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
+                       {isTeacher && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-emerald-500 hover:text-emerald-600"
+                            onClick={() => generateQuizMutation.mutate(id)}
+                            disabled={generateQuizMutation.isPending}
+                            title="Generate Quiz using AI"
+                          >
+                            {generateQuizMutation.isPending && generateQuizMutation.variables === id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Sparkles className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => deleteMutation.mutate(id)}
+                            disabled={deleteMutation.isPending}
+                            title="Delete document"
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>

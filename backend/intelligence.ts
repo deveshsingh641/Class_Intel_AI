@@ -1003,4 +1003,167 @@ export function generateDoubtReplies(doubtText: string): string[] {
   return templates.slice(0, 3);
 }
 
+export function generateQuizFromText(title: string, content: string) {
+  const lower = (title + " " + content).toLowerCase();
+  
+  const webQuestions = [
+    {
+      question: "Which of the following is true regarding the event loop in JavaScript?",
+      options: [
+        "Macro-tasks are executed before micro-tasks inside the event loop cycle.",
+        "Micro-task queue has higher priority, running immediately after the current call stack clears.",
+        "Web APIs execute code directly on the main JavaScript engine thread.",
+        "SetTimeout callbacks are placed in the micro-task queue."
+      ],
+      correctAnswer: 1,
+      points: 10
+    },
+    {
+      question: "What does the SameSite=Lax cookie attribute specify?",
+      options: [
+        "Cookies are never sent on cross-site requests.",
+        "Cookies are sent on all cross-site subresource requests like images.",
+        "Cookies are withheld on cross-site subresource requests but sent during top-level cross-site navigations.",
+        "Cookies are only sent on secure HTTPS connections."
+      ],
+      correctAnswer: 2,
+      points: 10
+    },
+    {
+      question: "What is the primary role of a Service Worker in a Progressive Web App (PWA)?",
+      options: [
+        "To synchronize database transactions locally.",
+        "To intercept network requests, serve cached resources offline, and run background synchronization.",
+        "To compile JSX code into JavaScript on the client side.",
+        "To establish high-speed WebRTC peer-to-peer data channels."
+      ],
+      correctAnswer: 1,
+      points: 10
+    }
+  ];
+
+  const dbmsQuestions = [
+    {
+      question: "Which normal form guarantees the elimination of all multi-valued dependencies?",
+      options: ["Second Normal Form (2NF)", "Third Normal Form (3NF)", "Boyce-Codd Normal Form (BCNF)", "Fourth Normal Form (4NF)"],
+      correctAnswer: 3,
+      points: 10
+    },
+    {
+      question: "What is the primary function of a write-ahead log (WAL) in database recovery?",
+      options: [
+        "To log user access logs for security audits.",
+        "To ensure transaction updates are committed to the transaction log before database pages are written to disk.",
+        "To index foreign key relationships for speed.",
+        "To keep a copy of deleted records for rollback transactions."
+      ],
+      correctAnswer: 1,
+      points: 10
+    },
+    {
+      question: "In transaction isolation levels, what is a phantom read?",
+      options: [
+        "A transaction re-reads a row and finds different column values modified by a committed transaction.",
+        "A transaction reads uncommitted changes from another transaction.",
+        "A transaction queries a set of rows matching a condition, and a second transaction inserts/deletes rows matching it before commit.",
+        "A transaction reads data that was cached locally on another node."
+      ],
+      correctAnswer: 2,
+      points: 10
+    }
+  ];
+
+  const dsQuestions = [
+    {
+      question: "In Machine Learning, what does the bias-variance tradeoff specify?",
+      options: [
+        "High bias models suffer from overfitting; High variance models underfit.",
+        "High bias models represent underfitting; High variance models represent overfitting.",
+        "Bias and variance can both be minimized to zero simultaneously.",
+        "Variance refers to the systematic error of the predictor."
+      ],
+      correctAnswer: 1,
+      points: 10
+    },
+    {
+      question: "Which evaluation metric is most appropriate for a highly imbalanced classification dataset?",
+      options: ["Accuracy", "Mean Absolute Error", "F1-Score / Precision-Recall AUC", "R-Squared"],
+      correctAnswer: 2,
+      points: 10
+    },
+    {
+      question: "What is the primary objective of Principal Component Analysis (PCA)?",
+      options: [
+        "To split dataset into test and training subsets.",
+        "To reduce dimensionality while preserving as much variance as possible.",
+        "To group records into K distinct clusters.",
+        "To optimize neural network weight updates."
+      ],
+      correctAnswer: 1,
+      points: 10
+    }
+  ];
+
+  const genericQuestions = [
+    {
+      question: "Based on the material, what is the primary focus of this study unit?",
+      options: [
+        "To understand the fundamental definitions and terminology introduced in the document.",
+        "To review historical events unrelated to the current subject curriculum.",
+        "To prepare for advanced graduate-level lab research procedures.",
+        "To perform hardware installations of secondary servers."
+      ],
+      correctAnswer: 0,
+      points: 10
+    },
+    {
+      question: "According to the document text, which statement is true about the core concepts discussed?",
+      options: [
+        "They are completely theoretical and cannot be applied in practical projects.",
+        "They form the structural foundation of the subject and should be studied thoroughly.",
+        "They are deprecated guidelines that are no longer followed in the industry.",
+        "They require high-performance hardware configurations to be implemented."
+      ],
+      correctAnswer: 1,
+      points: 10
+    }
+  ];
+
+  if (lower.includes("web") || lower.includes("html") || lower.includes("css") || lower.includes("javascript") || lower.includes("js")) {
+    return webQuestions;
+  }
+  if (lower.includes("dbms") || lower.includes("sql") || lower.includes("database") || lower.includes("query") || lower.includes("nosql")) {
+    return dbmsQuestions;
+  }
+  if (lower.includes("machine learning") || lower.includes("data science") || lower.includes("regression") || lower.includes("classification") || lower.includes("model")) {
+    return dsQuestions;
+  }
+
+  // Try to generate 1 specific question dynamically by extracting a sentence from the text if possible!
+  const sentences = content.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 30 && s.length < 120);
+  if (sentences.length > 0) {
+    const chosenSentence = sentences[Math.floor(Math.random() * sentences.length)];
+    const words = chosenSentence.split(/\s+/).filter(w => w.length > 6);
+    if (words.length > 0) {
+      const keyword = words[Math.floor(Math.random() * words.length)].replace(/[^\w]/g, "");
+      const blankedSentence = chosenSentence.replace(new RegExp(`\\b${keyword}\\b`, "i"), "_______");
+      
+      const dynamicQuestion = {
+        question: `Fill in the blank from the reading: "${blankedSentence}"`,
+        options: [
+          keyword,
+          "an alternative term",
+          "a non-matching keyword",
+          "none of the choices"
+        ],
+        correctAnswer: 0,
+        points: 10
+      };
+      return [dynamicQuestion, ...genericQuestions];
+    }
+  }
+
+  return genericQuestions;
+}
+
 

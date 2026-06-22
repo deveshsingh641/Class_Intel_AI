@@ -8,6 +8,7 @@ import { AIActionItems } from "@/components/AIActionItems";
 import { AIWeeklyDigest } from "@/components/AIWeeklyDigest";
 import { AIPredictiveTrend } from "@/components/AIPredictiveTrend";
 import { AISmartDoubtAnswer } from "@/components/AISmartDoubtAnswer";
+import { StudentRiskTable } from "@/components/StudentRiskTable";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -296,6 +297,7 @@ export default function TeacherDashboard() {
             <TabsTrigger value="feedback" data-testid="tab-feedback">Feedback</TabsTrigger>
             <TabsTrigger value="doubts" data-testid="tab-doubts">Doubt Wall</TabsTrigger>
             <TabsTrigger value="ai-insights" data-testid="tab-ai-insights">AI Insights</TabsTrigger>
+            <TabsTrigger value="at-risk" data-testid="tab-at-risk">At-Risk Students</TabsTrigger>
             <TabsTrigger value="analytics" data-testid="tab-analytics">Analytics</TabsTrigger>
           </TabsList>
 
@@ -501,6 +503,17 @@ export default function TeacherDashboard() {
               {teacherId && <AIWeeklyDigest teacherId={teacherId} />}
               {teacherId && <AIActionItems teacherId={teacherId} />}
             </div>
+          </TabsContent>
+
+          {/* NEW: At-Risk Students Tab */}
+          <TabsContent value="at-risk" className="space-y-6">
+            {teacherId ? (
+              <StudentRiskTable teacherId={teacherId} />
+            ) : (
+              <div className="text-center py-12 card glass-card">
+                <p className="text-muted-foreground">Teacher profile loading or not found.</p>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>

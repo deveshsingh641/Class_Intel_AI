@@ -18,6 +18,9 @@ import { TopicFrequencyChart } from "@/components/TopicFrequencyChart";
 import { AISuggestionsPanel } from "@/components/AISuggestionsPanel";
 import { StudentRiskTable } from "@/components/StudentRiskTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BulkStudentImport } from "@/components/BulkStudentImport";
+import { DepartmentManagement } from "@/components/DepartmentManagement";
+import { AuditLogViewer } from "@/components/AuditLogViewer";
 
 export default function AdminPanel() {
   const { toast } = useToast();
@@ -204,16 +207,24 @@ export default function AdminPanel() {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="intelligence" className="flex items-center gap-1">
+          <TabsList className="flex flex-wrap h-auto w-full gap-1 p-1 bg-muted rounded-lg">
+            <TabsTrigger value="overview" className="flex-1 min-w-[80px]">Overview</TabsTrigger>
+            <TabsTrigger value="intelligence" className="flex-grow flex items-center justify-center gap-1 min-w-[100px]">
               <Brain className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Intelligence</span>
+              <span>Intelligence</span>
             </TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="import">Import</TabsTrigger>
-            <TabsTrigger value="activity">Activity</TabsTrigger>
+            <TabsTrigger value="analytics" className="flex-1 min-w-[80px]">Analytics</TabsTrigger>
+            <TabsTrigger value="departments" className="flex-grow flex items-center justify-center gap-1 min-w-[110px]">
+              <Settings className="h-3.5 w-3.5" />
+              <span>Departments</span>
+            </TabsTrigger>
+            <TabsTrigger value="users" className="flex-1 min-w-[80px]">Users</TabsTrigger>
+            <TabsTrigger value="import" className="flex-1 min-w-[80px]">Import</TabsTrigger>
+            <TabsTrigger value="audit-logs" className="flex-grow flex items-center justify-center gap-1 min-w-[110px]">
+              <Shield className="h-3.5 w-3.5" />
+              <span>Audit Logs</span>
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="flex-grow min-w-[80px]">Activity</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -466,8 +477,27 @@ export default function AdminPanel() {
             <UserManagement />
           </TabsContent>
 
-          <TabsContent value="import">
-            <BulkTeacherImport onImportComplete={() => queryClient.invalidateQueries({ queryKey: ["/api/teachers"] })} />
+          <TabsContent value="departments">
+            <DepartmentManagement />
+          </TabsContent>
+
+          <TabsContent value="import" className="space-y-6">
+            <Tabs defaultValue="teachers-import" className="space-y-4">
+              <TabsList className="grid grid-cols-2 w-full max-w-md mx-auto">
+                <TabsTrigger value="teachers-import">Import Teachers</TabsTrigger>
+                <TabsTrigger value="students-import">Import Students</TabsTrigger>
+              </TabsList>
+              <TabsContent value="teachers-import">
+                <BulkTeacherImport onImportComplete={() => queryClient.invalidateQueries({ queryKey: ["/api/teachers"] })} />
+              </TabsContent>
+              <TabsContent value="students-import">
+                <BulkStudentImport onImportComplete={() => queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] })} />
+              </TabsContent>
+            </Tabs>
+          </TabsContent>
+
+          <TabsContent value="audit-logs">
+            <AuditLogViewer />
           </TabsContent>
 
           <TabsContent value="activity">

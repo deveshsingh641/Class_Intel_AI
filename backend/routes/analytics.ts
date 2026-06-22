@@ -7,7 +7,8 @@ import {
   QuizModel,
   QuizAttemptModel,
   AttendanceRecordModel,
-  AttendanceSessionModel
+  AttendanceSessionModel,
+  AuditLogModel
 } from "@shared/schema";
 import {
   authenticateToken,
@@ -402,6 +403,99 @@ router.get("/performance/all", authenticateToken, requireRole("teacher", "admin"
     res.json(parsed);
   } catch (error) {
     res.status(500).json({ error: "Failed to get performances" });
+  }
+});
+
+router.post("/admin/departments/rename", authenticateToken, requireRole("admin"), async (req: AuthRequest, res) => {
+  try {
+    const { oldName, newName } = req.body;
+    if (!oldName || !newName) {
+      return res.status(400).json({ error: "oldName and newName are required" });
+    }
+
+    const trimmedOld = oldName.trim();
+    const trimmedNew = newName.trim();
+
+    // Update teachers
+    const teacherResult = await TeacherModel.updateMany(
+      { department: trimmedOld },
+      { $set: { department: trimmedNew } }
+    );
+
+    // Update users
+    const userResult = await UserModel.updateMany(
+      { department: trimmedOld },
+      { $set: { department: trimmedNew } }
+    );
+
+    res.json({
+      success: true,
+      message: `Successfully renamed department from "${trimmedOld}" to "${trimmedNew}"`,
+      teachersUpdated: teacherResult.modifiedCount,
+      usersUpdated: userResult.modifiedCount
+    });
+  } catch (error: any) {
+    console.error("Rename department error:", error);
+    res.status(500).json({ error: error?.message || "Failed to rename department" });
+  }
+});
+
+router.get("/admin/audit-logs", authenticateToken, requireRole("admin"), async (req: AuthRequest, res) => {
+  try {
+    const page = parsePositiveInt(req.query.page, 1);
+    const limit = Math.min(100, parsePositiveInt(req.query.limit, 20));
+    const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+    const role = typeof req.query.role === "string" ? req.query.role.trim() : "all";
+    const action = typeof req.query.action === "string" ? req.query.action.trim() : "all";
+
+    const query: any = {};
+
+    if (search) {
+      const safe = escapeRegex(search);
+      query.$or = [
+        { userName: { $regex: safe, $options: "i" } },
+        { action: { $regex: safe, $options: "i" } },
+        { detail: { $regex: safe, $options: "i" } },
+      ];
+    }
+
+    if (role && role !== "all") {
+      query.userRole = role;
+    }
+
+    if (action && action !== "all") {
+      query.action = action;
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [logs, total] = await Promise.all([
+      AuditLogModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      AuditLogModel.countDocuments(query),
+    ]);
+
+    const parsedLogs = logs.map((log: any) => ({
+      id: log._id.toString(),
+      userId: log.userId,
+      userName: log.userName,
+      userRole: log.userRole,
+      action: log.action,
+      target: log.target,
+      targetId: log.targetId,
+      detail: log.detail,
+      ip: log.ip,
+      createdAt: log.createdAt,
+    }));
+
+    res.json({
+      items: parsedLogs,
+      total,
+      page,
+      limit
+    });
+  } catch (error) {
+    console.error("Get audit logs error:", error);
+    res.status(500).json({ error: "Failed to fetch audit logs" });
   }
 });
 
