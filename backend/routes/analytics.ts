@@ -2,6 +2,7 @@ import { Router } from "express";
 import { storage } from "../storage";
 import {
   UserModel,
+  TeacherModel,
   FeedbackModel,
   StudentPerformanceModel,
   QuizModel,

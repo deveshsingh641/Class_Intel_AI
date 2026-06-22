@@ -8,6 +8,10 @@ import { registerRoutes } from "./routes";
 import { createServer } from "http";
 import fs from "fs";
 import { connectDb, disconnectDb } from "./db";
+import { storage } from "./storage";
+import https from "https";
+import http from "http";
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -148,13 +152,34 @@ app.use((req, res, next) => {
   try {
     await connectDbWithRetry();
 
-    // Always attempt database seeding on startup (safely handles existing entries)
+    // Attempt database seeding on startup only if database hasn't been seeded yet (or forced)
     try {
-      const { seed } = await import("./seed");
-      await seed();
+      let shouldSeed = false;
+      if (process.env.FORCE_SEED === "true") {
+        shouldSeed = true;
+      } else {
+        try {
+          const adminUser = await storage.getUserByEmail("admin@edu.com");
+          if (!adminUser) {
+            shouldSeed = true;
+          }
+        } catch (dbErr) {
+          // If we fail to query the db, we seed it as a safe fallback
+          shouldSeed = true;
+        }
+      }
+
+      if (shouldSeed) {
+        log("Database not seeded. Running database seeding...", "server");
+        const { seed } = await import("./seed");
+        await seed();
+      } else {
+        log("Database already seeded. Skipping startup seeding.", "server");
+      }
     } catch (seedError) {
-      console.warn("[server] Database seeding failed:", seedError);
+      console.warn("[server] Database seeding check/operation failed:", seedError);
     }
+
 
     await registerRoutes(httpServer, app);
 
@@ -209,6 +234,27 @@ app.use((req, res, next) => {
     });
 
     log(`serving on port ${desiredPort}`);
+
+    // Keep-alive ping mechanism for Render free tier (runs every 14 minutes)
+    const renderUrl = process.env.RENDER_EXTERNAL_URL;
+    if (renderUrl) {
+      log(`Keep-alive pinger initialized targeting: ${renderUrl}`, "server");
+      setInterval(() => {
+        try {
+          log(`Sending keep-alive ping to ${renderUrl}...`, "server");
+          const client = renderUrl.startsWith("https") ? https : http;
+          client.get(renderUrl, (res) => {
+            log(`Keep-alive ping response status: ${res.statusCode}`, "server");
+          }).on("error", (err) => {
+            console.warn("[server] Keep-alive ping error:", err.message);
+          });
+        } catch (pingError) {
+          console.warn("[server] Keep-alive ping exception:", pingError);
+        }
+      }, 14 * 60 * 1000); // 14 minutes
+    } else {
+      log("RENDER_EXTERNAL_URL is not set. Skipping keep-alive pinger.", "server");
+    }
   } catch (error) {
     console.error("[server] Fatal server error:", error);
     await disconnectDb().catch(() => {});
